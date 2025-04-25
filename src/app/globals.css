@@ -1,0 +1,46 @@
+@import "tailwindcss";
+@tailwind base;
+@tailwind utilities;
+
+/* Variables globales */
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+/* Mode sombre automatique */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+/* Styles de base du body */
+body {
+  @apply bg-white text-gray-900 dark:bg-gray-900 dark:text-white font-sans;
+}
+
+/* Ajout de classes de responsivité */
+.container {
+  @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+}
+
+/* Exemple de bouton responsive */
+.btn {
+  @apply px-4 py-2 rounded-lg text-white bg-blue-500 hover:bg-blue-600 transition-all duration-300 ease-in-out;
+}
+
+/* Exemple d'un titre responsive */
+h1 {
+  @apply text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.2s ease-out forwards;
+}
