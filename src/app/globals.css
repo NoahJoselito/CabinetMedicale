@@ -18,7 +18,7 @@
 
 /* Styles de base du body */
 body {
-  @apply bg-white text-gray-900 dark:bg-gray-900 dark:text-white font-sans;
+  @apply bg-white text-black dark:bg-gray-900 dark:text-white font-sans;
 }
 
 /* Ajout de classes de responsivité */
