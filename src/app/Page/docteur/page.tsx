@@ -97,11 +97,11 @@ export default function Docteur() {
       if (editingDoctor) {
         // Mode édition
         await doctorService.updateDoctor(editingDoctor.id, formData);
-        toast.success('✅ Docteur modifié avec succès!');
+        toast.success(' Docteur modifié avec succès!');
       } else {
         // Mode création
         await doctorService.createDoctor(formData);
-        toast.success('✅ Docteur ajouté avec succès! Un email de confirmation a été envoyé.', {
+        toast.success(' Docteur ajouté avec succès! Un email de confirmation a été envoyé.', {
           position: "top-right",
           autoClose: 5000,
           hideProgressBar: false,
@@ -129,7 +129,7 @@ export default function Docteur() {
     } catch (error: any) {
       const errorMessage = error.response?.data?.message || 
         (editingDoctor ? "Erreur lors de la modification" : "Erreur lors de l'ajout du docteur");
-      toast.error(`❌ ${errorMessage}`, {
+      toast.error(` ${errorMessage}`, {
         position: "top-right",
         autoClose: 5000,
         hideProgressBar: false,
@@ -146,15 +146,24 @@ export default function Docteur() {
     setDeletingDoctor(doctor);
     setShowDeleteModal(true);
   };
-
+  
   const handleConfirmDelete = async () => {
     if (!deletingDoctor) return;
-
+    
+    // Ajout d'un état de chargement pour la suppression
+    const deleteLoadingToast = toast.loading("Suppression en cours...");
+    
     try {
       await doctorService.deleteDoctor(deletingDoctor.id);
-      toast.success('✅ Docteur supprimé avec succès', {
-        position: "top-right",
+      
+      // Mettre à jour le toast de chargement avec un message de succès
+      toast.update(deleteLoadingToast, {
+        render: ` Le docteur ${deletingDoctor.name} ${deletingDoctor.prenom} a été supprimé avec succès`,
+        type: "success",
+        isLoading: false,
         autoClose: 3000,
+        closeOnClick: true,
+        draggable: true,
       });
       
       // Rafraîchir la liste
@@ -162,13 +171,22 @@ export default function Docteur() {
       setDoctors(response.data);
     } catch (error: any) {
       const errorMessage = error.response?.data?.message || "Erreur lors de la suppression";
-      toast.error(`❌ ${errorMessage}`);
+      
+      // Mettre à jour le toast de chargement avec un message d'erreur
+      toast.update(deleteLoadingToast, {
+        render: ` ${errorMessage}`,
+        type: "error",
+        isLoading: false,
+        autoClose: 3000,
+        closeOnClick: true,
+        draggable: true,
+      });
     } finally {
       setShowDeleteModal(false);
       setDeletingDoctor(null);
     }
   };
-
+  
   useEffect(() => {
     const fetchDoctors = async () => {
       try {

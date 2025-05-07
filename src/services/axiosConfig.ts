@@ -3,7 +3,7 @@ import { toast } from 'react-toastify';
 import { API_URL } from './config';
 
 const axiosInstance = axios.create({
-  baseURL: process.env.NODE_ENV === 'development' ? '/api' : API_URL,
+  baseURL: API_URL,
   headers: {
     'Accept': 'application/json',
     'Content-Type': 'application/json'

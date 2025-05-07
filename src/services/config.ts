@@ -7,6 +7,8 @@ export const ENDPOINTS = {
     REGISTER: '/register'
   },
   DOCTORS: '/doctors',
+  SERVICES: '/services',
+  PATIENTS: '/patients',
 };
 
 export const API_CONFIG = {

@@ -6,6 +6,7 @@ import { BiSearch } from 'react-icons/bi';
 import { motion } from 'framer-motion';
 import Input from "../../components/ui/Input";
 import Button from "../../components/ui/Button";
+import { patientService } from '@/services/patientService';
 
 const Loading = () => (
   <div className="min-h-screen flex items-center justify-center bg-gray-100">
@@ -55,23 +56,25 @@ const MyComponent = () => {
     groupe_sanguin: string;
   }
 
-  const [patients, setPatients] = useState<Patient[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [isFormVisible, setIsFormVisible] = useState(false);
-  const [editingPatient, setEditingPatient] = useState<Patient | null>(null);
-  const [patientData, setPatientData] = useState({
+  const initialPatientData = {
     name: '',
     prenom: '',
     email: '',
     password: '',
     password_confirmation: '',
-    role_id: 4, // Role ID pour patient
+    role_id: 4,
     numeroTelephone: '',
     date_naissance: '',
     adresse: '',
     antecedents_medicaux: '',
     groupe_sanguin: ''
-  });
+  };
+
+  const [patients, setPatients] = useState<Patient[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [isFormVisible, setIsFormVisible] = useState(false);
+  const [editingPatient, setEditingPatient] = useState<Patient | null>(null);
+  const [patientData, setPatientData] = useState(initialPatientData);
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState('');
   const [loading, setLoading] = useState(true);
@@ -79,110 +82,72 @@ const MyComponent = () => {
   const [patientToDelete, setPatientToDelete] = useState<Patient | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Pagination states
+  // Update the pagination states
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(5);
+  const [paginatedData, setPaginatedData] = useState<{
+    data: Patient[];
+    current_page: number;
+    last_page: number;
+    total: number;
+  }>({ data: [], current_page: 1, last_page: 1, total: 0 });
 
   useEffect(() => {
-    setTimeout(() => {
-      setPatients([
-        {
-          id: 1,
-          name: "Doe",
-          prenom: "John",
-          email: "john.doe@example.com",
-          password: "password123",
-          role_id: 4,
-          numeroTelephone: "0123456789",
-          date_naissance: "1990-01-01",
-          adresse: "123 rue exemple",
-          antecedents_medicaux: "Hypertension, Diabète type 2",
-          groupe_sanguin: "A+"
-        },
-        {
-          id: 2,
-          name: "Smith",
-          prenom: "Jane",
-          email: "jane.smith@example.com",
-          password: "password123",
-          role_id: 4,
-          numeroTelephone: "0987654321",
-          date_naissance: "1985-05-15",
-          adresse: "456 avenue test",
-          antecedents_medicaux: "Asthme",
-          groupe_sanguin: "O-"
-        },
-        {
-          id: 3,
-          name: "Dupont",
-          prenom: "Pierre",
-          email: "pierre.dupont@example.com",
-          password: "password123",
-          role_id: 4,
-          numeroTelephone: "0654321789",
-          date_naissance: "1978-11-30",
-          adresse: "789 boulevard santé",
-          antecedents_medicaux: "Allergie aux arachides",
-          groupe_sanguin: "B+"
-        },
-        {
-          id: 4,
-          name: "Martin",
-          prenom: "Sophie",
-          email: "sophie.martin@example.com",
-          password: "password123",
-          role_id: 4,
-          numeroTelephone: "0712345678",
-          date_naissance: "1992-08-22",
-          adresse: "10 rue de la clinique",
-          antecedents_medicaux: "Aucun",
-          groupe_sanguin: "AB+"
-        },
-        {
-          id: 5,
-          name: "Johnson",
-          prenom: "Robert",
-          email: "robert.johnson@example.com",
-          password: "password123",
-          role_id: 4,
-          numeroTelephone: "0601020304",
-          date_naissance: "1965-03-17",
-          adresse: "25 rue des soins",
-          antecedents_medicaux: "Opération cardiaque (2018)",
-          groupe_sanguin: "A-"
-        },
-        {
-          id: 6,
-          name: "Brown",
-          prenom: "Emma",
-          email: "emma.brown@example.com",
-          password: "password123",
-          role_id: 4,
-          numeroTelephone: "0698765432",
-          date_naissance: "1995-12-10",
-          adresse: "42 avenue médecine",
-          antecedents_medicaux: "Migraines chroniques",
-          groupe_sanguin: "O+"
-        }
-      ]);
-      setLoading(false);
-    }, 2000);
-  }, []);
+    const fetchPatients = async () => {
+      try {
+        setLoading(true);
+        const response = await patientService.getPatients(currentPage);
+        setPaginatedData({
+          data: response.data.map(patient => ({
+            id: patient.id || 0,
+            name: patient.name || '',
+            prenom: patient.prenom || '',
+            email: patient.email || '',
+            password: patient.password || '',
+            role_id: patient.role_id || 4,
+            numeroTelephone: patient.numeroTelephone || '',
+            date_naissance: patient.date_naissance || '',
+            adresse: patient.adresse || '',
+            antecedents_medicaux: patient.antecedents_medicaux || '',
+            groupe_sanguin: patient.groupe_sanguin || ''
+          })),
+          current_page: response.current_page,
+          last_page: response.last_page,
+          total: response.total
+        });
+        setPatients(response.data.map(patient => ({
+          id: patient.id || 0,
+          name: patient.name || '',
+          prenom: patient.prenom || '',
+          email: patient.email || '',
+          password: patient.password || '',
+          role_id: patient.role_id || 4,
+          numeroTelephone: patient.numeroTelephone || '',
+          date_naissance: patient.date_naissance || '',
+          adresse: patient.adresse || '',
+          antecedents_medicaux: patient.antecedents_medicaux || '',
+          groupe_sanguin: patient.groupe_sanguin || ''
+        })));
+      } catch (error) {
+        setMessage('Erreur lors du chargement des patients');
+        setMessageType('error');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchPatients();  }, [currentPage]);
 
   const filteredPatients = patients.filter((patient: Patient) =>
-    patient.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    patient.prenom.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    patient.groupe_sanguin.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    patient.numeroTelephone.includes(searchTerm) ||
-    patient.email.toLowerCase().includes(searchTerm.toLowerCase())
+    (patient?.name ?? '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (patient?.prenom ?? '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (patient?.groupe_sanguin ?? '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (patient?.numeroTelephone ?? '').includes(searchTerm) ||
+    (patient?.email ?? '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // Pagination logic
-  const indexOfLastItem = currentPage * itemsPerPage;
-  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentPatients = filteredPatients.slice(indexOfFirstItem, indexOfLastItem);
-  const totalPages = Math.ceil(filteredPatients.length / itemsPerPage);
+  // Remove the old pagination logic that slices the array
+  const currentPatients = filteredPatients;
 
   const PaginationControls = () => (
     <div className="flex justify-center items-center mt-4 gap-2">
@@ -194,11 +159,12 @@ const MyComponent = () => {
         Précédent
       </button>
       <span className="mx-4">
-        Page {currentPage} sur {totalPages}
+        Page {paginatedData.current_page} sur {paginatedData.last_page} 
+        ({paginatedData.total} résultats)
       </span>
       <button
-        onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-        disabled={currentPage === totalPages}
+        onClick={() => setCurrentPage(prev => Math.min(prev + 1, paginatedData.last_page))}
+        disabled={currentPage === paginatedData.last_page}
         className="px-3 py-1 rounded bg-gray-200 disabled:opacity-50 cursor-pointer"
       >
         Suivant
@@ -213,90 +179,77 @@ const MyComponent = () => {
     }
   }, [message]);
 
-  const handleAddOrEditPatient = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    
-    // Validation
-    if (patientData.password !== patientData.password_confirmation) {
-      setMessage('Les mots de passe ne correspondent pas !');
-      setMessageType('error');
-      return;
-    }
-    
-    if (editingPatient) {
-      setPatients((prevPatients: Patient[]) =>
-        prevPatients.map((pat: Patient) =>
-          pat.id === editingPatient.id
-            ? {
-                ...pat,
-                name: patientData.name,
-                prenom: patientData.prenom,
-                email: patientData.email,
-                password: patientData.password,
-                role_id: 4, // Forcer le role_id à 4 même lors de l'édition
-                numeroTelephone: patientData.numeroTelephone,
-                date_naissance: patientData.date_naissance,
-                adresse: patientData.adresse,
-                antecedents_medicaux: patientData.antecedents_medicaux,
-                groupe_sanguin: patientData.groupe_sanguin
-              }
-            : pat
-        )
-      );
-      setMessage('Patient modifié avec succès !');
-      setMessageType('success');
-    } else {
-      // Exemple d'ajout selon le format fourni
-      const newPatient = {
-        id: Date.now(),
-        name: patientData.name,
-        prenom: patientData.prenom,
-        email: patientData.email,
-        password: patientData.password,
-        role_id: 4,
-        numeroTelephone: patientData.numeroTelephone,
-        date_naissance: patientData.date_naissance,
-        adresse: patientData.adresse,
-        antecedents_medicaux: patientData.antecedents_medicaux,
-        groupe_sanguin: patientData.groupe_sanguin
-      };
-      
-      setPatients((prevPatients: Patient[]) => [...prevPatients, newPatient]);
-      setMessage('Patient ajouté avec succès !');
-      setMessageType('success');
-    }
-    
-    setPatientData({
-      name: '',
-      prenom: '',
-      email: '',
-      password: '',
-      password_confirmation: '',
-      role_id: 4,
-      numeroTelephone: '',
-      date_naissance: '',
-      adresse: '',
-      antecedents_medicaux: '',
-      groupe_sanguin: ''
-    });
+  const resetForm = () => {
+    setPatientData(initialPatientData);
     setEditingPatient(null);
-    setIsFormVisible(false);
+    setShowPassword(false);
+    setShowConfirmPassword(false);
   };
 
+  const closeForm = () => {
+    setIsFormVisible(false);
+    resetForm();
+  };
+
+  const handleAddOrEditPatient = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    
+    try {
+      if (!editingPatient && patientData.password !== patientData.password_confirmation) {
+        setMessage('Les mots de passe ne correspondent pas !');
+        setMessageType('error');
+        setIsSubmitting(false);
+        return;
+      }
+      
+      const patientPayload = {
+        ...patientData,
+        role_id: 4 as const,
+        // Only include password fields if they're not empty
+        ...(patientData.password ? {
+          password: patientData.password,
+          password_confirmation: patientData.password_confirmation
+        } : {})
+      };
+      
+      if (editingPatient) {
+        await patientService.updatePatient(editingPatient.id, patientPayload);
+        setMessage('Patient modifié avec succès !');
+      } else {
+        const response = await patientService.createPatient(patientPayload);
+        if (response) {
+          setMessage('Patient ajouté avec succès !');
+        } else {
+          throw new Error('Erreur lors de la création du patient');
+        }
+      }
+      
+      setMessageType('success');
+      closeForm();
+      const response = await patientService.getPatients(currentPage);
+      setPatients(response.data as Patient[]);
+    } catch (error: any) {
+      setMessage(error.response?.data?.message || 'Une erreur est survenue lors de l\'opération');
+      setMessageType('error');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
   const handleEdit = (patient: Patient) => {
     setEditingPatient(patient);
     setPatientData({
-      name: patient.name,
-      prenom: patient.prenom,
-      email: patient.email,
-      password: patient.password,
-      password_confirmation: patient.password,
-      role_id: patient.role_id,
-      numeroTelephone: patient.numeroTelephone,
-      date_naissance: patient.date_naissance,
-      adresse: patient.adresse,
-      antecedents_medicaux: patient.antecedents_medicaux,
-      groupe_sanguin: patient.groupe_sanguin
+      name: patient.name || '',
+      prenom: patient.prenom || '',
+      email: patient.email || '',
+      password: '',  // Changed from patient.password
+      password_confirmation: '', // Changed from patient.password
+      role_id: patient.role_id || 4,
+      numeroTelephone: patient.numeroTelephone || '',
+      date_naissance: patient.date_naissance || '',
+      adresse: patient.adresse || '',
+      antecedents_medicaux: patient.antecedents_medicaux || '',
+      groupe_sanguin: patient.groupe_sanguin || ''
     });
     setIsFormVisible(true);
   };
@@ -306,13 +259,21 @@ const MyComponent = () => {
     setShowConfirmModal(true);
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (patientToDelete) {
-      setPatients(prevPatients => prevPatients.filter(pat => pat.id !== patientToDelete.id));
-      setMessage('Patient supprimé avec succès !');
-      setMessageType('success');
-      setShowConfirmModal(false);
-      setPatientToDelete(null);
+      try {
+        await patientService.deletePatient(patientToDelete.id);
+        setMessage('Patient supprimé avec succès !');
+        setMessageType('success');
+        const response = await patientService.getPatients(currentPage);
+        setPatients(response.data as Patient[]);
+      } catch (error) {
+        setMessage('Erreur lors de la suppression');
+        setMessageType('error');
+      } finally {
+        setShowConfirmModal(false);
+        setPatientToDelete(null);
+      }
     }
   };
 
@@ -395,7 +356,7 @@ const MyComponent = () => {
       </div>
 
       {isFormVisible && (
-        <div className="fixed inset-0 bg-black/25 z-50" onClick={() => setIsFormVisible(false)}>
+        <div className="fixed inset-0 bg-black/25 z-50" onClick={closeForm}>
           <motion.div
             initial={{ x: '100%' }}
             animate={{ x: 0 }}
@@ -404,7 +365,7 @@ const MyComponent = () => {
             className="fixed top-0 right-0 h-full w-96 bg-white shadow-lg p-6 overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
-            <button onClick={() => setIsFormVisible(false)} className="absolute top-4 right-4 text-gray-500 hover:text-gray-700 cursor-pointer">
+            <button onClick={closeForm} className="absolute top-4 right-4 text-gray-500 hover:text-gray-700 cursor-pointer">
               <FaTimes size={20} />
             </button>
             <h2 className="text-xl font-bold mb-4">{editingPatient ? 'Modifier' : 'Ajouter'} un patient</h2>
@@ -544,7 +505,19 @@ const MyComponent = () => {
                 </select>
               </div>
               <div className="flex justify-between items-center">
-                <Button className="bg-blue-500 text-white px-6 py-2 rounded-lg">{editingPatient ? 'Mettre à jour' : 'Ajouter'}</Button>
+                <Button 
+                  disabled={isSubmitting}
+                  className="bg-blue-500 text-white px-6 py-2 rounded-lg flex items-center gap-2"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      Traitement...
+                    </>
+                  ) : (
+                    editingPatient ? 'Mettre à jour' : 'Ajouter'
+                  )}
+                </Button>
               </div>
             </form>
           </motion.div>
@@ -552,7 +525,7 @@ const MyComponent = () => {
       )}
 
       {showConfirmModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-60">
           <div className="bg-white p-6 rounded-lg shadow-lg max-w-sm w-full">
             <h3 className="text-lg font-semibold mb-4">Êtes-vous sûr de vouloir supprimer ce patient ?</h3>
             <p className="mb-4 text-gray-600">

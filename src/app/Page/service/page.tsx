@@ -4,6 +4,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import { div } from 'framer-motion/client';
+import { medicalServiceApi, IMedicalService } from '@/services/medicalServiceApi';
+import { toast } from 'react-toastify';
 
 const Loading = () => (
   <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-blue-50 to-white">
@@ -36,81 +38,6 @@ const Loading = () => (
     </motion.div>
   </div>
 );
-
-const services = [
-  { 
-    id: 1,
-    name: "Consultation Générale", 
-    description: "Examen médical complet pour diagnostiquer et traiter les maladies courantes.",
-    icon: "🩺",
-    details: "Nos consultations générales comprennent un examen physique complet, une évaluation de vos antécédents médicaux, et des recommandations personnalisées pour maintenir ou améliorer votre santé. Nos médecins généralistes sont disponibles pour traiter une variété de conditions et peuvent vous orienter vers des spécialistes si nécessaire.",
-    horaires: "Lundi au Vendredi: 8h-18h | Samedi: 9h-12h"
-  },
-  { 
-    id: 2,
-    name: "Pédiatrie", 
-    description: "Soins spécialisés pour les nourrissons, les enfants et les adolescents.",
-    icon: "👶",
-    details: "Notre service de pédiatrie offre des soins complets pour les enfants de tous âges, depuis les nouveau-nés jusqu'aux adolescents. Nos pédiatres sont formés pour diagnostiquer et traiter les maladies infantiles, effectuer des bilans de santé réguliers, et conseiller les parents sur la nutrition, le développement et la prévention.",
-    horaires: "Lundi au Vendredi: 9h-17h"
-  },
-  { 
-    id: 3,
-    name: "Gynécologie", 
-    description: "Consultations et suivi médical pour la santé des femmes.",
-    icon: "👩",
-    details: "Notre service de gynécologie propose des examens préventifs, des dépistages, des consultations pour la contraception, le suivi de grossesse, et le traitement des troubles gynécologiques. Nos gynécologues offrent un environnement confidentiel et respectueux pour discuter de tous les aspects de la santé féminine.",
-    horaires: "Lundi, Mercredi, Vendredi: 9h-16h"
-  },
-  { 
-    id: 4,
-    name: "Cardiologie", 
-    description: "Examens et traitements pour les maladies cardiovasculaires.",
-    icon: "❤️",
-    details: "Notre service de cardiologie est équipé pour diagnostiquer et traiter les maladies du cœur et des vaisseaux sanguins. Nous proposons des électrocardiogrammes, des tests d'effort, des échocardiographies et des consultations spécialisées pour la prévention et la gestion des maladies cardiovasculaires.",
-    horaires: "Mardi et Jeudi: 10h-18h"
-  },
-  { 
-    id: 5,
-    name: "Radiologie", 
-    description: "Imagerie médicale pour un diagnostic précis (échographies, radiographies, etc.).",
-    icon: "📷",
-    details: "Notre département de radiologie utilise des technologies d'imagerie avancées pour aider au diagnostic de diverses conditions médicales. Nous proposons des radiographies, des échographies, et des examens spécialisés, tous réalisés par des techniciens qualifiés et interprétés par des radiologues expérimentés.",
-    horaires: "Lundi au Vendredi: 8h-16h"
-  },
-  { 
-    id: 6,
-    name: "Dermatologie", 
-    description: "Traitement des maladies de la peau, des cheveux et des ongles.",
-    icon: "🧴",
-    details: "Notre service de dermatologie traite les affections cutanées comme l'acné, l'eczéma, le psoriasis et les infections fongiques. Nous effectuons également des dépistages du cancer de la peau et proposons des traitements pour les problèmes capillaires et des ongles.",
-    horaires: "Lundi et Mercredi: 9h-17h"
-  },
-  { 
-    id: 7,
-    name: "Ophtalmologie", 
-    description: "Examens de la vision et prise en charge des maladies oculaires.",
-    icon: "👁️",
-    details: "Notre service d'ophtalmologie offre des examens complets de la vue, des prescriptions de lunettes et lentilles de contact, ainsi que le diagnostic et le traitement des maladies oculaires comme la cataracte, le glaucome et la dégénérescence maculaire.",
-    horaires: "Mardi et Jeudi: 9h-16h"
-  },
-  { 
-    id: 8,
-    name: "Dentisterie", 
-    description: "Soins dentaires et traitements orthodontiques.",
-    icon: "🦷",
-    details: "Notre service dentaire propose des nettoyages réguliers, des obturations, des extractions, des traitements de canal, des couronnes et des prothèses. Nous offrons également des services d'orthodontie pour corriger l'alignement des dents et améliorer votre sourire.",
-    horaires: "Lundi au Vendredi: 8h30-17h"
-  },
-  { 
-    id: 9,
-    name: "Kinésithérapie", 
-    description: "Rééducation physique et traitement des douleurs musculaires.",
-    icon: "💪",
-    details: "Notre service de kinésithérapie aide les patients à récupérer leur mobilité et leur force après une blessure ou une chirurgie. Nos kinésithérapeutes utilisent diverses techniques manuelles, des exercices thérapeutiques et des modalités physiques pour réduire la douleur et améliorer la fonction physique.",
-    horaires: "Lundi au Vendredi: 8h-19h | Samedi: 9h-13h"
-  }
-];
 
 // Liste d'icônes pour le sélecteur d'icônes
 const iconOptions = ["🩺", "👶", "👩", "❤️", "📷", "🧴", "👁️", "🦷", "💪", "🧠", "🦴", "🫁", "🫀", "🧬", "💊", "💉"];
@@ -454,7 +381,6 @@ const ServiceDetailModal = ({ service, onClose }: { service: Service; onClose: (
             ✕
           </button>
         </div>
-        
         <div className="mb-6">
           <h3 className="text-lg font-semibold text-blue-600 mb-2">Description</h3>
           <p className="text-gray-700 mb-4">{service.description}</p>
@@ -481,8 +407,6 @@ const ServiceDetailModal = ({ service, onClose }: { service: Service; onClose: (
     </motion.div>
   );
 };
-
-
 // Composant pour chaque carte de service
 const ServiceCard = ({ 
   service, 
@@ -550,30 +474,41 @@ const ServiceLayout = ({ children }: { children: React.ReactNode }) => {
 export default function ServicesPage() {
   const [loading, setLoading] = useState(true);
   const [selectedService, setSelectedService] = useState<Service | null>(null);
-  const [servicesList, setServicesList] = useState<Service[]>(services);
+  const [servicesList, setServicesList] = useState<Service[]>([]);
   const [isAddFormOpen, setIsAddFormOpen] = useState(false);
   const [isEditFormOpen, setIsEditFormOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [serviceToEdit, setServiceToEdit] = useState<Service | null>(null);
   const [serviceToDelete, setServiceToDelete] = useState<Service | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; service: Service } | null>(null);
-  const [nextId, setNextId] = useState(services.length + 1);
+  const [nextId, setNextId] = useState(1);
   
   useEffect(() => {
-    setTimeout(() => {
-      setLoading(false);
-    }, 2000);
-
-    // Fermer le menu contextuel lors d'un clic n'importe où
-    const handleClick = () => {
-      setContextMenu(null);
+    const fetchServices = async () => {
+      try {
+        const response = await medicalServiceApi.getAllServices();
+        if (response.data) {
+          const formattedServices = response.data.map((service: IMedicalService) => ({
+            id: service.id,
+            name: service.nom,
+            description: service.description_courte,
+            icon: service.icone,
+            details: service.details,
+            horaires: service.horaires
+          }));
+          console.log('Formatted Services:', formattedServices);
+          setServicesList(formattedServices);
+        }
+        setLoading(false);
+      } catch (error) {
+        console.error('Error fetching services:', error);
+        toast.error('Erreur lors du chargement des services');
+        setLoading(false);
+      }
     };
 
-    document.addEventListener('click', handleClick);
-    return () => {
-      document.removeEventListener('click', handleClick);
-    };
-  }, []);
+    fetchServices();
+}, []);
 
   const handleLearnMore = (service: Service) => {
     setSelectedService(service);
@@ -583,32 +518,75 @@ export default function ServicesPage() {
     setSelectedService(null);
   };
 
-  const handleAddService = (newService: Omit<Service, 'id'>) => {
-    const serviceWithId = { ...newService, id: nextId };
-    setServicesList(prev => [...prev, serviceWithId]);
-    setNextId(prev => prev + 1);
+  const handleAddService = async (newService: Omit<Service, 'id'>) => {
+    try {
+      const apiService = {
+        icone: newService.icon,
+        nom: newService.name,
+        description_courte: newService.description,
+        details: newService.details,
+        horaires: newService.horaires
+      };
+
+      const response = await medicalServiceApi.createService(apiService);
+      const createdService = {
+        id: response.service.id,
+        name: response.service.nom,
+        description: response.service.description_courte,
+        icon: response.service.icone,
+        details: response.service.details,
+        horaires: response.service.horaires
+      };
+
+      setServicesList(prev => [...prev, createdService]);
+      toast.success('Service ajouté avec succès');
+    } catch (error) {
+      console.error('Error creating service:', error);
+      toast.error('Erreur lors de la création du service');
+    }
   };
 
-  const handleEditService = (updatedService: Omit<Service, 'id'>) => {
+  const handleEditService = async (updatedService: Omit<Service, 'id'>) => {
     if (!serviceToEdit) return;
-    
-    setServicesList(prev => 
-      prev.map(service => 
-        service.id === serviceToEdit.id 
-          ? { ...updatedService, id: serviceToEdit.id } 
-          : service
-      )
-    );
+
+    try {
+      const apiService = {
+        icone: updatedService.icon,
+        nom: updatedService.name,
+        description_courte: updatedService.description,
+        details: updatedService.details,
+        horaires: updatedService.horaires
+      };
+
+      await medicalServiceApi.updateService(serviceToEdit.id, apiService);
+      setServicesList(prev =>
+        prev.map(service =>
+          service.id === serviceToEdit.id
+            ? { ...updatedService, id: serviceToEdit.id }
+            : service
+        )
+      );
+      toast.success('Service mis à jour avec succès');
+    } catch (error) {      console.error('Error updating service:', error);
+      toast.error('Erreur lors de la mise à jour du service');
+    }
   };
 
-  const handleDeleteService = () => {
+  const handleDeleteService = async () => {
     if (!serviceToDelete) return;
-    
-    setServicesList(prev => 
-      prev.filter(service => service.id !== serviceToDelete.id)
-    );
-    setIsDeleteModalOpen(false);
-    setServiceToDelete(null);
+
+    try {
+      await medicalServiceApi.deleteService(serviceToDelete.id);
+      setServicesList(prev =>
+        prev.filter(service => service.id !== serviceToDelete.id)
+      );
+      setIsDeleteModalOpen(false);
+      setServiceToDelete(null);
+      toast.success('Service supprimé avec succès');
+    } catch (error) {
+      console.error('Error deleting service:', error);
+      toast.error('Erreur lors de la suppression du service');
+    }
   };
 
   const handleContextMenu = (e: React.MouseEvent, service: Service) => {
