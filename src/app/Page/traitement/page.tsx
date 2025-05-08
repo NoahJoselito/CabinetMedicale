@@ -132,14 +132,17 @@ export default function DossierMedical() {
   };
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    if (name === "services") {
-      const select = e.target as HTMLSelectElement;
-      const selectedServices = Array.from(select.selectedOptions).map(option => parseInt(option.value));
-      setNouveauTraitement({ ...nouveauTraitement, services: selectedServices as number[] });
+    if (name === "service") {
+      const serviceId = parseInt(value);
+      const updatedServices = (e.target as HTMLInputElement).checked
+        ? [...nouveauTraitement.services, serviceId]
+        : nouveauTraitement.services.filter(id => id !== serviceId);
+      setNouveauTraitement({ ...nouveauTraitement, services: updatedServices });
     } else {
       setNouveauTraitement({ ...nouveauTraitement, [name]: value });
     }
-  };  const handleEdit = (traitement: {
+  };  
+  const handleEdit = (traitement: {
     services: never[]; id: number; nom: string; prix: number 
 }) => {
     setNouveauTraitement({ 
@@ -196,7 +199,7 @@ export default function DossierMedical() {
         pauseOnFocusLoss
         draggable
         pauseOnHover
-        theme="colored"
+        theme="light"
       />
       
       <div className="flex justify-between items-center mb-6">
@@ -240,20 +243,20 @@ export default function DossierMedical() {
                   </td>
                   <td className="py-3 px-4 text-sm text-gray-500">
                     <div className="flex space-x-2">
-                          <button 
-                            onClick={() => handleEdit({
+                            <button 
+                              onClick={() => handleEdit({
                               id: traitement.id,
                               nom: traitement.nom,
                               prix: traitement.prix,
-                              services: traitement.services as number[]
-                            })}
-                            className="text-blue-500 hover:text-blue-700 cursor-pointer"
-                            title="Modifier"
-                          >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              services: traitement.services || []
+                              })}
+                              className="text-blue-500 hover:text-blue-700 cursor-pointer"
+                              title="Modifier"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                            </svg>
-                          </button>
+                              </svg>
+                            </button>
                       <button 
                         onClick={() => handleDelete(traitement.id)}
                         className="text-red-500 hover:text-red-700 cursor-pointer"
@@ -360,27 +363,27 @@ export default function DossierMedical() {
           </div>
           
           <div>
-            <label htmlFor="services" className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
               Services associés
             </label>
-            <select
-              id="services"
-              name="services"
-              multiple
-              value={nouveauTraitement.services.map(String)}
-              onChange={handleChange}
-              className="text-black w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-              size={4}
-            >
+            <div className="space-y-2 max-h-48 overflow-y-auto border border-gray-300 rounded-md p-3">
               {services.map(service => (
-                <option key={service.id} value={service.id}>
-                  {service.nom}
-                </option>
+                <div key={service.id} className="flex items-center">
+                  <input
+                    type="checkbox"
+                    id={`service-${service.id}`}
+                    name="service"
+                    value={service.id}
+                    checked={nouveauTraitement.services.includes(service.id)}
+                    onChange={handleChange}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded cursor-pointer"
+                  />
+                  <label htmlFor={`service-${service.id}`} className="ml-2 text-sm text-gray-700">
+                    {service.nom}
+                  </label>
+                </div>
               ))}
-            </select>
-            <p className="mt-1 text-sm text-gray-500">
-              Maintenez Ctrl (Cmd sur Mac) pour sélectionner plusieurs services
-            </p>
+            </div>
           </div>
           
           <button

@@ -9,13 +9,13 @@ import { useState, useEffect } from "react";
 const sidebarItems = [
   { icon: LayoutDashboard, title: "Tableau de bord", href: "/Page" },
   { icon: Stethoscope, title: "Service", href: "/Page/service" },
+  { icon: Package, title: "Stocks", href: "/Page/stocks" },
   { icon: Pill, title: "Traitement", href: "/Page/traitement" },
   { icon: User, title: "Docteur", href: "/Page/docteur" },
   { icon: Folder, title: "Patient", href: "/Page/patient" },
   { icon: FileText, title: "Dossier Médical", href: "/Page/dossier" },
   { icon: CalendarCheck, title: "Consultation", href: "/Page/consultation" },
   { icon: CreditCard, title: "Salaire employé", href: "/Page/payement" },
-  { icon: Package, title: "Stocks", href: "/Page/stocks" },
   { icon: CalendarDays, title: "Rendez-vous", href: "/Page/rendez_vous" },
 ];
 

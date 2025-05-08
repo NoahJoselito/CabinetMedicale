@@ -1,12 +1,14 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
-import { FaTrash, FaEdit, FaPlus, FaTimes, FaEye } from 'react-icons/fa';
+import React, { useState, useEffect, useCallback } from 'react';
+import { FaTrash, FaEdit, FaPlus, FaTimes } from 'react-icons/fa';
 import { BiSearch } from 'react-icons/bi';
 import { motion } from 'framer-motion';
 import Input from "../../components/ui/Input";
 import Button from "../../components/ui/Button";
 import { patientService } from '@/services/patientService';
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 const Loading = () => (
   <div className="min-h-screen flex items-center justify-center bg-gray-100">
@@ -53,7 +55,6 @@ const MyComponent = () => {
     date_naissance: string;
     adresse: string;
     antecedents_medicaux: string;
-    groupe_sanguin: string;
   }
 
   const initialPatientData = {
@@ -67,7 +68,6 @@ const MyComponent = () => {
     date_naissance: '',
     adresse: '',
     antecedents_medicaux: '',
-    groupe_sanguin: ''
   };
 
   const [patients, setPatients] = useState<Patient[]>([]);
@@ -75,14 +75,13 @@ const MyComponent = () => {
   const [isFormVisible, setIsFormVisible] = useState(false);
   const [editingPatient, setEditingPatient] = useState<Patient | null>(null);
   const [patientData, setPatientData] = useState(initialPatientData);
-  const [message, setMessage] = useState('');
-  const [messageType, setMessageType] = useState('');
   const [loading, setLoading] = useState(true);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [patientToDelete, setPatientToDelete] = useState<Patient | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDeletingPatient, setIsDeletingPatient] = useState(false);
 
   // Update the pagination states
   const [currentPage, setCurrentPage] = useState(1);
@@ -93,30 +92,12 @@ const MyComponent = () => {
     total: number;
   }>({ data: [], current_page: 1, last_page: 1, total: 0 });
 
-  useEffect(() => {
-    const fetchPatients = async () => {
-      try {
-        setLoading(true);
-        const response = await patientService.getPatients(currentPage);
-        setPaginatedData({
-          data: response.data.map(patient => ({
-            id: patient.id || 0,
-            name: patient.name || '',
-            prenom: patient.prenom || '',
-            email: patient.email || '',
-            password: patient.password || '',
-            role_id: patient.role_id || 4,
-            numeroTelephone: patient.numeroTelephone || '',
-            date_naissance: patient.date_naissance || '',
-            adresse: patient.adresse || '',
-            antecedents_medicaux: patient.antecedents_medicaux || '',
-            groupe_sanguin: patient.groupe_sanguin || ''
-          })),
-          current_page: response.current_page,
-          last_page: response.last_page,
-          total: response.total
-        });
-        setPatients(response.data.map(patient => ({
+  const fetchPatients = useCallback(async () => {
+    try {
+      setLoading(true);
+      const response = await patientService.getPatients(currentPage);
+      setPaginatedData({
+        data: response.data.map(patient => ({
           id: patient.id || 0,
           name: patient.name || '',
           prenom: patient.prenom || '',
@@ -126,58 +107,41 @@ const MyComponent = () => {
           numeroTelephone: patient.numeroTelephone || '',
           date_naissance: patient.date_naissance || '',
           adresse: patient.adresse || '',
-          antecedents_medicaux: patient.antecedents_medicaux || '',
-          groupe_sanguin: patient.groupe_sanguin || ''
-        })));
-      } catch (error) {
-        setMessage('Erreur lors du chargement des patients');
-        setMessageType('error');
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchPatients();  }, [currentPage]);
+          antecedents_medicaux: patient.antecedents_medicaux || ''
+        })),
+        current_page: response.current_page,
+        last_page: response.last_page,
+        total: response.total
+      });
+    } catch (error) {
+      toast.error('Erreur lors du chargement des patients');
+    } finally {
+      setLoading(false);
+    }
+  }, [currentPage]);
 
-  const filteredPatients = patients.filter((patient: Patient) =>
+  useEffect(() => {
+    fetchPatients();
+  }, [fetchPatients]);
+
+  // Modify the search handler
+  const handleSearch = useCallback((value: string) => {
+    setSearchTerm(value);
+    setCurrentPage(1); // Reset to first page when searching
+  }, []);
+
+  // Update the currentPatients calculation
+  const currentPatients = paginatedData.data.filter((patient: Patient) =>
     (patient?.name ?? '').toLowerCase().includes(searchTerm.toLowerCase()) ||
     (patient?.prenom ?? '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (patient?.groupe_sanguin ?? '').toLowerCase().includes(searchTerm.toLowerCase()) ||
     (patient?.numeroTelephone ?? '').includes(searchTerm) ||
     (patient?.email ?? '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // Remove the old pagination logic that slices the array
-  const currentPatients = filteredPatients;
-
-  const PaginationControls = () => (
-    <div className="flex justify-center items-center mt-4 gap-2">
-      <button
-        onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-        disabled={currentPage === 1}
-        className="px-3 py-1 rounded bg-gray-200 disabled:opacity-50 cursor-pointer"
-      >
-        Précédent
-      </button>
-      <span className="mx-4">
-        Page {paginatedData.current_page} sur {paginatedData.last_page} 
-        ({paginatedData.total} résultats)
-      </span>
-      <button
-        onClick={() => setCurrentPage(prev => Math.min(prev + 1, paginatedData.last_page))}
-        disabled={currentPage === paginatedData.last_page}
-        className="px-3 py-1 rounded bg-gray-200 disabled:opacity-50 cursor-pointer"
-      >
-        Suivant
-      </button>
-    </div>
-  );
-
-  useEffect(() => {
-    if (message) {
-      const timer = setTimeout(() => setMessage(''), 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [message]);
+  // Update the pagination indices calculation
+  const itemsPerPage = 5; // or whatever your page size is
+  const startIndex = (paginatedData.current_page - 1) * itemsPerPage + 1;
+  const endIndex = Math.min(startIndex + currentPatients.length - 1, paginatedData.total);
 
   const resetForm = () => {
     setPatientData(initialPatientData);
@@ -217,23 +181,49 @@ const MyComponent = () => {
       
       if (editingPatient) {
         await patientService.updatePatient(editingPatient.id, patientPayload);
-        setMessage('Patient modifié avec succès !');
+        toast.success('Patient modifié avec succès !');
       } else {
         const response = await patientService.createPatient(patientPayload);
         if (response) {
-          setMessage('Patient ajouté avec succès ! Un email avec les identifiants a été envoyé.');
+          toast.success('Patient ajouté avec succès !');
         } else {
           throw new Error('Erreur lors de la création du patient');
         }
       }
       
-      setMessageType('success');
       closeForm();
       const response = await patientService.getPatients(currentPage);
-      setPatients(response.data as Patient[]);
+      setPaginatedData({
+        data: response.data.map(patient => ({
+          id: patient.id || 0,
+          name: patient.name || '',
+          prenom: patient.prenom || '',
+          email: patient.email || '',
+          password: patient.password || '',
+          role_id: patient.role_id || 4,
+          numeroTelephone: patient.numeroTelephone || '',
+          date_naissance: patient.date_naissance || '',
+          adresse: patient.adresse || '',
+          antecedents_medicaux: patient.antecedents_medicaux || ''
+        })),
+        current_page: response.current_page,
+        last_page: response.last_page,
+        total: response.total
+      });
+      setPatients(response.data.map(patient => ({
+        id: patient.id || 0,
+        name: patient.name || '',
+        prenom: patient.prenom || '',
+        email: patient.email || '',
+        password: patient.password || '',
+        role_id: patient.role_id || 4,
+        numeroTelephone: patient.numeroTelephone || '',
+        date_naissance: patient.date_naissance || '',
+        adresse: patient.adresse || '',
+        antecedents_medicaux: patient.antecedents_medicaux || ''
+      })));
     } catch (error: any) {
-      setMessage(error.response?.data?.message || 'Une erreur est survenue lors de l\'opération');
-      setMessageType('error');
+      toast.error(error.response?.data?.message || 'Une erreur est survenue lors de l\'opération');
     } finally {
       setIsSubmitting(false);
     }
@@ -251,8 +241,7 @@ const MyComponent = () => {
       numeroTelephone: patient.numeroTelephone || '',
       date_naissance: patient.date_naissance || '',
       adresse: patient.adresse || '',
-      antecedents_medicaux: patient.antecedents_medicaux || '',
-      groupe_sanguin: patient.groupe_sanguin || ''
+      antecedents_medicaux: patient.antecedents_medicaux || ''
     });
     setIsFormVisible(true);
   };
@@ -264,16 +253,44 @@ const MyComponent = () => {
 
   const confirmDelete = async () => {
     if (patientToDelete) {
+      setIsDeletingPatient(true);
       try {
         await patientService.deletePatient(patientToDelete.id);
-        setMessage('Patient supprimé avec succès !');
-        setMessageType('success');
+        toast.success('Patient supprimé avec succès !');
         const response = await patientService.getPatients(currentPage);
-        setPatients(response.data as Patient[]);
+        setPaginatedData({
+          data: response.data.map(patient => ({
+            id: patient.id || 0,
+            name: patient.name || '',
+            prenom: patient.prenom || '',
+            email: patient.email || '',
+            password: patient.password || '',
+            role_id: patient.role_id || 4,
+            numeroTelephone: patient.numeroTelephone || '',
+            date_naissance: patient.date_naissance || '',
+            adresse: patient.adresse || '',
+            antecedents_medicaux: patient.antecedents_medicaux || ''
+          })),
+          current_page: response.current_page,
+          last_page: response.last_page,
+          total: response.total
+        });
+        setPatients(response.data.map(patient => ({
+          id: patient.id || 0,
+          name: patient.name || '',
+          prenom: patient.prenom || '',
+          email: patient.email || '',
+          password: patient.password || '',
+          role_id: patient.role_id || 4,
+          numeroTelephone: patient.numeroTelephone || '',
+          date_naissance: patient.date_naissance || '',
+          adresse: patient.adresse || '',
+          antecedents_medicaux: patient.antecedents_medicaux || ''
+        })));
       } catch (error) {
-        setMessage('Erreur lors de la suppression');
-        setMessageType('error');
+        toast.error('Erreur lors de la suppression du patient');
       } finally {
+        setIsDeletingPatient(false);
         setShowConfirmModal(false);
         setPatientToDelete(null);
       }
@@ -289,73 +306,122 @@ const MyComponent = () => {
 
   return (
     <main className="min-h-screen text-gray-700 p-8 bg-gray-100">
-      <h1 className="text-2xl font-bold">Patients</h1>
-      <h5 className="mb-6 text-lg">Liste des Patients</h5>
+      <ToastContainer
+        position="top-right"
+        autoClose={3000}
+        hideProgressBar={false}
+        newestOnTop={false}
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+        theme="light"
+      />
 
-      {message && (
-        <div className={`fixed top-4 right-4 p-4 rounded-lg shadow-lg z-50 ${messageType === 'success' ? 'bg-green-500' : 'bg-red-500'} text-white`}>
-          {message}
+      <div className="flex justify-between items-center mb-6">
+        <div>
+          <h1 className="text-2xl font-bold">Patients</h1>
+          <h5 className="text-lg">Liste des Patients</h5>
         </div>
-      )}
+        <button 
+          onClick={() => setIsFormVisible(true)} 
+          className="cursor-pointer bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg shadow-md transition-all duration-300 flex items-center z-50"
+        >
+          <FaPlus className="mr-2 " /> Ajouter
+        </button>
+      </div>
 
-      <div className="container mx-auto px-4 pb-6">
-        <div className="flex justify-between items-center mb-12">
-          <div className="relative w-64">
-            <input
-              type="text"
-              className="w-full pl-10 pr-4 py-2 border rounded-lg"
-              placeholder="Rechercher"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-            <BiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-          </div>
-          <button onClick={() => setIsFormVisible(true)} className="bg-blue-500 text-white px-4 py-2 rounded-lg flex items-center cursor-pointer">
-            <FaPlus className="mr-2" /> Ajouter
-          </button>
+      <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+        <div className="relative w-64 mb-6">
+          <input
+            type="text"
+            className="w-full pl-10 pr-4 py-2 border rounded-lg"
+            placeholder="Rechercher"
+            value={searchTerm}
+            onChange={(e) => handleSearch(e.target.value)}
+          />
+          <BiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
         </div>
 
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          <table className="w-full border-collapse">
-            <thead>
-              <tr className="bg-gray-200">
-                <th className="p-4 text-left">Nom</th>
-                <th className="p-4 text-left">Prénom</th>
-                <th className="p-4 text-left">Groupe Sanguin</th>
-                <th className="p-4 text-left">Téléphone</th>
-                <th className="p-4 text-left">Email</th>
-                <th className="p-4 text-left">Date de naissance</th>
-                <th className="p-4 text-left">Actions</th>
+        <div className="overflow-x-auto">
+          <table className="min-w-full bg-white">
+            <thead className="bg-gray-100">
+              <tr>
+                <th className="py-3 px-4 text-left text-sm font-medium text-gray-600 uppercase tracking-wider">Nom</th>
+                <th className="py-3 px-4 text-left text-sm font-medium text-gray-600 uppercase tracking-wider">Prénom</th>
+                <th className="py-3 px-4 text-left text-sm font-medium text-gray-600 uppercase tracking-wider">Téléphone</th>
+                <th className="py-3 px-4 text-left text-sm font-medium text-gray-600 uppercase tracking-wider">Email</th>
+                <th className="py-3 px-4 text-left text-sm font-medium text-gray-600 uppercase tracking-wider">Date de naissance</th>
+                <th className="py-3 px-4 text-left text-sm font-medium text-gray-600 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-gray-200">
               {currentPatients.length > 0 ? (
                 currentPatients.map((patient: Patient) => (
-                  <tr key={patient.id} className="border-t">
-                    <td className="p-4">{patient.name}</td>
-                    <td className="p-4">{patient.prenom}</td>
-                    <td className="p-4">{patient.groupe_sanguin}</td>
-                    <td className="p-4">{patient.numeroTelephone}</td>
-                    <td className="p-4">{patient.email}</td>
-                    <td className="p-4">{new Date(patient.date_naissance).toLocaleDateString('fr-FR')}</td>
-                    <td className="p-4 flex gap-2">
-                      <button onClick={() => handleEdit(patient)} className="text-blue-500 cursor-pointer">
-                        <FaEdit size={18} />
-                      </button>
-                      <button onClick={() => handleDelete(patient)} className="text-red-500 cursor-pointer">
-                        <FaTrash size={18} />
-                      </button>
+                  <tr key={patient.id} className="hover:bg-gray-50">
+                    <td className="py-3 px-4">{patient.name}</td>
+                    <td className="py-3 px-4">{patient.prenom}</td>
+                    <td className="py-3 px-4">{patient.numeroTelephone}</td>
+                    <td className="py-3 px-4">{patient.email}</td>
+                    <td className="py-3 px-4">{new Date(patient.date_naissance).toLocaleDateString('fr-FR')}</td>
+                    <td className="py-3 px-4">
+                      <div className="flex space-x-2">
+                        <button 
+                          onClick={() => handleEdit(patient)}
+                          className="text-blue-500 hover:text-blue-700 cursor-pointer"
+                          title="Modifier"
+                        >
+                          <FaEdit size={18} />
+                        </button>
+                        <button 
+                          onClick={() => handleDelete(patient)}
+                          className="text-red-500 hover:text-red-700 cursor-pointer"
+                          title="Supprimer"
+                        >
+                          <FaTrash size={18} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
               ) : (
-                <tr><td colSpan={7} className="p-4 text-center">Aucun patient trouvé</td></tr>
+                <tr><td colSpan={6} className="p-4 text-center">Aucun patient trouvé</td></tr>
               )}
             </tbody>
           </table>
         </div>
 
-        <PaginationControls />
+        <div className="flex justify-between items-center mt-6">
+          <div className="text-sm text-gray-600">
+            Affichage de {startIndex} à {endIndex} sur {paginatedData.total} patients
+          </div>
+          <div className="flex space-x-1">
+            <button 
+              onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+              disabled={currentPage === 1}
+              className={`px-3 py-1 rounded ${currentPage === 1 ? 'bg-gray-200 text-gray-500 cursor-not-allowed' : 'bg-blue-500 text-white hover:bg-blue-600'}`}
+            >
+              Précédent
+            </button>
+            {Array.from({ length: paginatedData.last_page }, (_, i) => (
+              <button
+                key={i + 1}
+                onClick={() => setCurrentPage(i + 1)}
+                className={`px-3 py-1 rounded ${currentPage === i + 1 ? 'bg-blue-600 text-white' : 'bg-gray-200 hover:bg-gray-300'}`}
+              >
+                {i + 1}
+              </button>
+            ))}
+            <button 
+              onClick={() => setCurrentPage(prev => Math.min(prev + 1, paginatedData.last_page))}
+              disabled={currentPage === paginatedData.last_page}
+              className={`px-3 py-1 rounded ${currentPage === paginatedData.last_page ? 'bg-gray-200 text-gray-500 cursor-not-allowed' : 'bg-blue-500 text-white hover:bg-blue-600'}`}
+            >
+              Suivant
+            </button>
+          </div>
+        </div>
       </div>
 
       {isFormVisible && (
@@ -447,27 +513,7 @@ const MyComponent = () => {
                   onChange={(e) => setPatientData({ ...patientData, antecedents_medicaux: e.target.value })}
                 />
               </div>
-              <div className="mb-4">
-                <label htmlFor="groupe_sanguin" className="block text-gray-700">Groupe sanguin</label>
-                <select
-                  id="groupe_sanguin"
-                  className="w-full px-4 py-2 border rounded"
-                  value={patientData.groupe_sanguin}
-                  onChange={(e) => setPatientData({ ...patientData, groupe_sanguin: e.target.value })}
-                  required
-                >
-                  <option value="">Sélectionner</option>
-                  <option value="A+">A+</option>
-                  <option value="A-">A-</option>
-                  <option value="B+">B+</option>
-                  <option value="B-">B-</option>
-                  <option value="AB+">AB+</option>
-                  <option value="AB-">AB-</option>
-                  <option value="O+">O+</option>
-                  <option value="O-">O-</option>
-                </select>
-              </div>
-              <div className="flex justify-between items-center">
+              <div className="flex justify-between items-center float-right mb-4">
                 <Button 
                   disabled={isSubmitting}
                   className="bg-blue-500 text-white px-6 py-2 rounded-lg flex items-center gap-2"
@@ -490,17 +536,37 @@ const MyComponent = () => {
       {showConfirmModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-60">
           <div className="bg-white p-6 rounded-lg shadow-lg max-w-sm w-full">
-            <h3 className="text-lg font-semibold mb-4">Êtes-vous sûr de vouloir supprimer ce patient ?</h3>
-            <p className="mb-4 text-gray-600">
-              {patientToDelete && `${patientToDelete.prenom} ${patientToDelete.name} (${patientToDelete.groupe_sanguin})`}
-            </p>
-            <div className="flex justify-between">
-              <button onClick={cancelDelete} className="bg-gray-300 text-black px-4 py-2 rounded cursor-pointer">
-                Annuler
-              </button>
-              <button onClick={confirmDelete} className="bg-red-500 text-white px-4 py-2 rounded cursor-pointer">
-                Supprimer
-              </button>
+            <div className="text-center">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-red-500 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              <h3 className="text-lg font-semibold mb-4">Êtes-vous sûr de vouloir supprimer ce patient ?</h3>
+              <p className="mb-4 text-gray-600">
+                {patientToDelete && `${patientToDelete.prenom} ${patientToDelete.name}`}
+              </p>
+              <div className="flex justify-center space-x-4">
+                <button
+                  onClick={cancelDelete}
+                  disabled={isDeletingPatient}
+                  className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-md transition-colors disabled:opacity-50"
+                >
+                  Annuler
+                </button>
+                <button
+                  onClick={confirmDelete}
+                  disabled={isDeletingPatient}
+                  className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-md transition-colors disabled:opacity-50 flex items-center space-x-2"
+                >
+                  {isDeletingPatient ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      <span>Suppression...</span>
+                    </>
+                  ) : (
+                    <span>Supprimer</span>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         </div>

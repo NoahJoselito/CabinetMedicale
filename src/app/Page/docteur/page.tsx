@@ -5,7 +5,8 @@ import Input from "@/app/components/ui/Input";
 import { FaPlus, FaEdit, FaTrash, FaTimes, FaChevronLeft, FaChevronRight } from "react-icons/fa";
 import { doctorService } from "@/services/doctorService";
 import type { Doctor } from "@/services/doctorService";
-import { toast } from 'react-toastify';
+import { toast, ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 import { motion } from "framer-motion";
 
 const Loading = () => (
@@ -216,6 +217,19 @@ export default function Docteur() {
 
   return (
     <div className="p-6">
+      <ToastContainer
+        position="top-right"
+        autoClose={5000}
+        hideProgressBar={false}
+        newestOnTop={false}
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+        theme="light"
+      />
+      
       {/* Overlay */}
       {isFormOpen && (
         <div
@@ -270,22 +284,18 @@ export default function Docteur() {
                     <td className="px-6 py-4 whitespace-nowrap">{doctor.numeroTelephone}</td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex space-x-2">
-                        <Button 
-                          variant="primary" 
-                          size="sm" 
-                          leftIcon={<FaEdit />}
+                        <button 
+                          className="text-blue-500 hover:text-blue-600 transition-colors cursor-pointer"
                           onClick={() => handleEditClick(doctor)}
                         >
-                          Modifier
-                        </Button>
-                        <Button 
-                          variant="danger" 
-                          size="sm" 
-                          leftIcon={<FaTrash />}
+                          <FaEdit size={18} />
+                        </button>
+                        <button 
+                          className="text-red-500 hover:text-red-600 transition-colors cursor-pointer"
                           onClick={() => handleDeleteClick(doctor)}
                         >
-                          Supprimer
-                        </Button>
+                          <FaTrash size={18} />
+                        </button>
                       </div>
                     </td>
                   </tr>

@@ -24,8 +24,8 @@ interface PaginatedResponse {
 }
 
 export const patientService = {
-  getPatients: async (page: number = 1): Promise<PaginatedResponse> => {
-    const { data } = await axiosInstance.get(`${ENDPOINTS.PATIENTS}?page=${page}`);
+  getPatients: async (page: number = 1, search: string = ''): Promise<PaginatedResponse> => {
+    const { data } = await axiosInstance.get(`${ENDPOINTS.PATIENTS}?page=${page}&search=${search}`);
     return data;
   },
   createPatient: async (patientData: Patient) => {
