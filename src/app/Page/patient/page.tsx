@@ -191,26 +191,28 @@ const MyComponent = () => {
     resetForm();
   };
 
+  // Ajouter cette fonction pour générer un mot de passe aléatoire
+  const generateRandomPassword = () => {
+    const length = 12;
+    const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*";
+    let password = "";
+    for (let i = 0; i < length; i++) {
+      password += charset.charAt(Math.floor(Math.random() * charset.length));
+    }
+    return password;
+  };
+
   const handleAddOrEditPatient = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsSubmitting(true);
     
     try {
-      if (!editingPatient && patientData.password !== patientData.password_confirmation) {
-        setMessage('Les mots de passe ne correspondent pas !');
-        setMessageType('error');
-        setIsSubmitting(false);
-        return;
-      }
-      
+      const randomPassword = generateRandomPassword();
       const patientPayload = {
         ...patientData,
         role_id: 4 as const,
-        // Only include password fields if they're not empty
-        ...(patientData.password ? {
-          password: patientData.password,
-          password_confirmation: patientData.password_confirmation
-        } : {})
+        password: !editingPatient ? randomPassword : undefined,
+        password_confirmation: !editingPatient ? randomPassword : undefined
       };
       
       if (editingPatient) {
@@ -219,7 +221,7 @@ const MyComponent = () => {
       } else {
         const response = await patientService.createPatient(patientPayload);
         if (response) {
-          setMessage('Patient ajouté avec succès !');
+          setMessage('Patient ajouté avec succès ! Un email avec les identifiants a été envoyé.');
         } else {
           throw new Error('Erreur lors de la création du patient');
         }
@@ -236,6 +238,7 @@ const MyComponent = () => {
       setIsSubmitting(false);
     }
   };
+
   const handleEdit = (patient: Patient) => {
     setEditingPatient(patient);
     setPatientData({
@@ -402,46 +405,6 @@ const MyComponent = () => {
                   onChange={(e) => setPatientData({ ...patientData, email: e.target.value })}
                   required
                 />
-              </div>
-              <div className="mb-4">
-                <label htmlFor="password" className="block text-gray-700">Mot de passe</label>
-                <div className="relative">
-                  <input
-                    type={showPassword ? "text" : "password"}
-                    id="password"
-                    className="w-full px-4 py-2 border rounded"
-                    value={patientData.password}
-                    onChange={(e) => setPatientData({ ...patientData, password: e.target.value })}
-                    required={!editingPatient}
-                  />
-                  <button
-                    type="button"
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
-                    onClick={() => setShowPassword(!showPassword)}
-                  >
-                    {showPassword ? <FaTimes size={16} /> : <FaEye size={16} />}
-                  </button>
-                </div>
-              </div>
-              <div className="mb-4">
-                <label htmlFor="password_confirmation" className="block text-gray-700">Confirmer le mot de passe</label>
-                <div className="relative">
-                  <input
-                    type={showConfirmPassword ? "text" : "password"}
-                    id="password_confirmation"
-                    className="w-full px-4 py-2 border rounded"
-                    value={patientData.password_confirmation}
-                    onChange={(e) => setPatientData({ ...patientData, password_confirmation: e.target.value })}
-                    required={!editingPatient}
-                  />
-                  <button
-                    type="button"
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  >
-                    {showConfirmPassword ? <FaTimes size={16} /> : <FaEye size={16} />}
-                  </button>
-                </div>
               </div>
               <div className="mb-4">
                 <label htmlFor="numeroTelephone" className="block text-gray-700">Téléphone</label>

@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 const Loading = () => (
   <div className="min-h-screen flex items-center justify-center bg-gray-100">
@@ -43,23 +45,43 @@ export default function DossierMedical() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [traitements, setTraitements] = useState([
-    { id: 1, nom: "Consultation", prix: 20000 },
-    { id: 2, nom: "Radiographie", prix: 35000 },
-    { id: 3, nom: "Analyse de sang", prix: 15000 },
-    { id: 4, nom: "Échographie", prix: 40000 },
-    { id: 5, nom: "Vaccination", prix: 12000 },
-    { id: 6, nom: "Physiothérapie", prix: 25000 },
-    { id: 7, nom: "Consultation spécialiste", prix: 45000 },
-    { id: 8, nom: "IRM", prix: 120000 },
-    { id: 9, nom: "Scanner", prix: 80000 },
-    { id: 10, nom: "Électrocardiogramme", prix: 30000 },
+    { id: 1, nom: "Consultation", prix: 20000, services: [1, 2] },
+    { id: 2, nom: "Radiographie", prix: 35000, services: [1, 3] },
+    { id: 3, nom: "Analyse de sang", prix: 15000, services: [1, 4] },
+    { id: 4, nom: "Échographie", prix: 40000, services: [] },
+    { id: 5, nom: "Vaccination", prix: 12000, services: [] },
+    { id: 6, nom: "Physiothérapie", prix: 25000, services: [] },
+    { id: 7, nom: "Consultation spécialiste", prix: 45000, services: [] },
+    { id: 8, nom: "IRM", prix: 120000, services: [] },
+    { id: 9, nom: "Scanner", prix: 80000, services: [] },
+    { id: 10, nom: "Électrocardiogramme", prix: 30000, services: [] },
   ]);
-  const [nouveauTraitement, setNouveauTraitement] = useState({ id: 0, nom: "", prix: "" });
+  interface Traitement {
+    id: number;
+    nom: string;
+    prix: string;
+    services: number[];
+  }
+
+  const [nouveauTraitement, setNouveauTraitement] = useState<Traitement>({ 
+    id: 0, 
+    nom: "", 
+    prix: "",
+    services: [] 
+  });
   const [isEditing, setIsEditing] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(5);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [traitementToDelete, setTraitementToDelete] = useState(null);
+  const [services] = useState([
+    { id: 1, nom: "Consultation générale" },
+    { id: 2, nom: "Urgences" },
+    { id: 3, nom: "Pédiatrie" },
+    { id: 4, nom: "Cardiologie" },
+    { id: 5, nom: "Dentisterie" },
+    { id: 6, nom: "Gynécologie" }
+  ]);
 
   useEffect(() => {
     setTimeout(() => {
@@ -81,35 +103,50 @@ export default function DossierMedical() {
       // Update existing treatment
       setTraitements(traitements.map(t => 
         t.id === nouveauTraitement.id 
-          ? { ...t, nom: nouveauTraitement.nom, prix: parseFloat(nouveauTraitement.prix as string) } 
+          ? { 
+              ...t, 
+              nom: nouveauTraitement.nom, 
+              prix: parseFloat(nouveauTraitement.prix as string),
+              services: nouveauTraitement.services
+            } 
           : t
       ));
+      toast.success('Traitement modifié avec succès !');
     } else {
       // Add new treatment
       const newId = traitements.length > 0 ? Math.max(...traitements.map(t => t.id)) + 1 : 1;
       const nouveauTraitementAvecId = {
         id: newId,
         nom: nouveauTraitement.nom,
-        prix: parseFloat(nouveauTraitement.prix as string)
+        prix: parseFloat(nouveauTraitement.prix as string),
+        services: nouveauTraitement.services
       };
       setTraitements([...traitements, nouveauTraitementAvecId]);
+      toast.success('Nouveau traitement ajouté avec succès !');
     }
     
     // Reset form
-    setNouveauTraitement({ id: 0, nom: "", prix: "" });
+    setNouveauTraitement({ id: 0, nom: "", prix: "", services: [] });
     setShowForm(false);
     setIsEditing(false);
   };
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setNouveauTraitement({ ...nouveauTraitement, [name]: value });
-  };
-
-  const handleEdit = (traitement: { id: number; nom: string; prix: number }) => {
+    if (name === "services") {
+      const select = e.target as HTMLSelectElement;
+      const selectedServices = Array.from(select.selectedOptions).map(option => parseInt(option.value));
+      setNouveauTraitement({ ...nouveauTraitement, services: selectedServices as number[] });
+    } else {
+      setNouveauTraitement({ ...nouveauTraitement, [name]: value });
+    }
+  };  const handleEdit = (traitement: {
+    services: never[]; id: number; nom: string; prix: number 
+}) => {
     setNouveauTraitement({ 
       id: traitement.id, 
       nom: traitement.nom, 
-      prix: traitement.prix.toString() 
+      prix: traitement.prix.toString(),
+      services: traitement.services || []
     });
     setIsEditing(true);
     setShowForm(true);
@@ -124,6 +161,8 @@ export default function DossierMedical() {
     setShowDeleteConfirm(false);
     setTraitementToDelete(null);
     
+    toast.error('Traitement supprimé avec succès !');
+    
     // Adjust current page if needed after deletion
     if (currentTraitements.length === 1 && currentPage > 1) {
       setCurrentPage(currentPage - 1);
@@ -135,15 +174,36 @@ export default function DossierMedical() {
     setTraitementToDelete(null);
   };
 
+  // Ajouter cette fonction helper
+  const getServiceNames = (serviceIds: number[]) => {
+    return serviceIds
+      ?.map(id => services.find(s => s.id === id)?.nom)
+      .filter(Boolean)
+      .join(", ");
+  };
+
   if (loading) { return <Loading />;}
   
   return (
     <div className="p-6 h-screen bg-gray-100">
+      <ToastContainer
+        position="top-right"
+        autoClose={3000}
+        hideProgressBar={false}
+        newestOnTop={false}
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+        theme="colored"
+      />
+      
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-gray-600 text-2xl font-bold">Traitement Médical</h1>
         <button 
           onClick={() => {
-            setNouveauTraitement({ id: 0, nom: "", prix: "" });
+            setNouveauTraitement({ id: 0, nom: "", prix: "", services: [] });
             setIsEditing(false);
             setShowForm(true);
           }}          className="cursor-pointer bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg shadow-md transition-all duration-300 flex items-center"
@@ -165,6 +225,7 @@ export default function DossierMedical() {
                 <th className="py-3 px-4 text-left text-sm font-medium text-gray-600 uppercase tracking-wider">ID</th>
                 <th className="py-3 px-4 text-left text-sm font-medium text-gray-600 uppercase tracking-wider">Nom du traitement</th>
                 <th className="py-3 px-4 text-left text-sm font-medium text-gray-600 uppercase tracking-wider">Prix (Ar)</th>
+                <th className="py-3 px-4 text-left text-sm font-medium text-gray-600 uppercase tracking-wider">Services</th>
                 <th className="py-3 px-4 text-left text-sm font-medium text-gray-600 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
@@ -175,16 +236,24 @@ export default function DossierMedical() {
                   <td className="py-3 px-4 text-sm text-gray-500">{traitement.nom}</td>
                   <td className="py-3 px-4 text-sm text-gray-500">{traitement.prix.toLocaleString()} Ar</td>
                   <td className="py-3 px-4 text-sm text-gray-500">
+                    {getServiceNames(traitement.services)}
+                  </td>
+                  <td className="py-3 px-4 text-sm text-gray-500">
                     <div className="flex space-x-2">
-                      <button 
-                        onClick={() => handleEdit(traitement)}
-                        className="text-blue-500 hover:text-blue-700 cursor-pointer"
-                        title="Modifier"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                        </svg>
-                      </button>
+                          <button 
+                            onClick={() => handleEdit({
+                              id: traitement.id,
+                              nom: traitement.nom,
+                              prix: traitement.prix,
+                              services: traitement.services as number[]
+                            })}
+                            className="text-blue-500 hover:text-blue-700 cursor-pointer"
+                            title="Modifier"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                          </button>
                       <button 
                         onClick={() => handleDelete(traitement.id)}
                         className="text-red-500 hover:text-red-700 cursor-pointer"
@@ -237,7 +306,7 @@ export default function DossierMedical() {
 
       {/* Formulaire d'ajout/modification de traitement (slide-in) */}
       <motion.div 
-        className="fixed top-0 right-0 h-full w-96 bg-white shadow-lg z-50 p-6 overflow-y-auto"
+        className="fixed top-0 right-0 h-full w-96 bg-white shadow-lg z-70 p-6 overflow-y-auto"
         initial={{ x: "100%" }}
         animate={{ x: showForm ? 0 : "100%" }}
         transition={{ type: "spring", stiffness: 300, damping: 30 }}
@@ -256,9 +325,9 @@ export default function DossierMedical() {
           </button>
         </div>
         
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4 ">
           <div>
-            <label htmlFor="nom" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="nom" className="block text-sm font-medium text-gray-700 mb-1 ">
               Nom du traitement
             </label>
             <input
@@ -290,6 +359,30 @@ export default function DossierMedical() {
             />
           </div>
           
+          <div>
+            <label htmlFor="services" className="block text-sm font-medium text-gray-700 mb-1">
+              Services associés
+            </label>
+            <select
+              id="services"
+              name="services"
+              multiple
+              value={nouveauTraitement.services.map(String)}
+              onChange={handleChange}
+              className="text-black w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              size={4}
+            >
+              {services.map(service => (
+                <option key={service.id} value={service.id}>
+                  {service.nom}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-sm text-gray-500">
+              Maintenez Ctrl (Cmd sur Mac) pour sélectionner plusieurs services
+            </p>
+          </div>
+          
           <button
             type="submit"
             className="cursor-pointer w-full bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded-md shadow-sm transition-colors duration-300"
@@ -302,7 +395,7 @@ export default function DossierMedical() {
       {/* Overlay pour fermer le formulaire en cliquant à l'extérieur */}
       {showForm && (
         <div 
-          className="fixed inset-0 bg-black/30 z-40"
+          className="fixed inset-0 bg-black/30 z-50"
           onClick={() => setShowForm(false)}
         />
       )}

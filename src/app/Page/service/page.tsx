@@ -40,7 +40,7 @@ const Loading = () => (
 );
 
 // Liste d'icônes pour le sélecteur d'icônes
-const iconOptions = ["🩺", "👶", "👩", "❤️", "📷", "🧴", "👁️", "🦷", "💪", "🧠", "🦴", "🫁", "🫀", "🧬", "💊", "💉"];
+const iconOptions = ["👨🏼‍⚕", "🩺", "👶", "👩", "❤️", "📷", "🧴", "👁️", "🦷", "💪", "🧠", "🦴", "🧬", "💊", "💉"];
 
 // Type pour un service
 type Service = {
@@ -152,7 +152,7 @@ const ServiceForm = ({
   const [formData, setFormData] = useState({
     name: "",
     description: "",
-    icon: "🩺",
+    icon: "👨🏼‍⚕", // Modifié ici : icône par défaut
     details: "",
     horaires: ""
   });
@@ -162,9 +162,18 @@ const ServiceForm = ({
       setFormData({
         name: initialData.name,
         description: initialData.description,
-        icon: initialData.icon,
+        icon: initialData.icon || "👨🏼‍⚕", // Ajout du fallback ici aussi
         details: initialData.details,
         horaires: initialData.horaires
+      });
+    } else {
+      // Réinitialisation avec l'icône par défaut
+      setFormData({
+        name: "",
+        description: "",
+        icon: "👨🏼‍⚕",
+        details: "",
+        horaires: ""
       });
     }
   }, [initialData, isOpen]);
@@ -180,7 +189,7 @@ const ServiceForm = ({
     setFormData({
       name: "",
       description: "",
-      icon: "🩺",
+      icon: "👨🏼‍⚕",
       details: "",
       horaires: ""
     });

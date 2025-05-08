@@ -42,42 +42,76 @@ export default function Login() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50">
+    <div className="flex items-center justify-center min-h-screen bg-gray-50 p-4">
       <ToastContainer position="top-right" />
-      <div className="w-full max-w-md space-y-8 rounded-lg bg-white p-8 shadow-lg">
-        <div>
-          <h2 className="mt-6 text-center text-3xl font-bold tracking-tight text-gray-900">
-            Connectez-vous à votre compte
-          </h2>
+      
+      {/* Card contenant l'image et le formulaire */}
+      <div className="flex flex-col md:flex-row w-full max-w-4xl bg-white rounded-xl shadow-lg overflow-hidden">
+        {/* Section Image */}
+        <div className="w-full md:w-1/2">
+          <div className="flex h-130 items-center justify-center">
+            <img
+              src="/img/login_image.jpg"
+              alt="Medical Login"
+              className="h-full w-full object-cover"
+            />
+          </div>
         </div>
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-          <Input
-            type="email"
-            name="email"
-            value={formData.email}
-            onChange={handleChange}
-            label="Adresse email"
-            placeholder="exemple@email.com"
-            required
-          />
-          <Input
-            type="password"
-            name="password"
-            value={formData.password}
-            onChange={handleChange}
-            label="Mot de passe"
-            placeholder="Votre mot de passe"
-            required
-          />
-          <Button
-            type="submit"
-            variant="primary"
-            fullWidth
-            isLoading={isLoading}
-          >
-            Se connecter
-          </Button>
-        </form>
+        
+        {/* Section Formulaire */}
+        <div className="w-full md:w-1/2 p-8 flex flex-col justify-center">
+          <div className="max-w-md mx-auto w-full">
+            <div className="mb-6">
+              <h2 className="text-center text-3xl font-bold tracking-tight text-gray-900">
+                Connectez-vous à votre compte
+              </h2>
+              <p className="mt-2 text-center text-sm text-gray-600">
+                Accédez à votre espace personnel
+              </p>
+            </div>
+            <form className="space-y-4" onSubmit={handleSubmit}>
+              <Input
+                type="email"
+                name="email"
+                value={formData.email}
+                onChange={handleChange}
+                label="Adresse email"
+                placeholder="exemple@email.com"
+                required
+                className="rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              />
+              <Input
+                type="password"
+                name="password"
+                value={formData.password}
+                onChange={handleChange}
+                label="Mot de passe"
+                placeholder="Votre mot de passe"
+                required
+                className="rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              />
+              <div className="flex justify-end">
+                <a
+                  href="/Formulaire/forgotPassword"
+                  className="text-sm text-blue-600 hover:text-blue-800"
+                >
+                  Mot de passe oublié ?
+                </a>
+              </div>
+              <div className="pt-2">
+                <Button
+                  type="submit"
+                  variant="primary"
+                  fullWidth
+                  isLoading={isLoading}
+                  className="bg-blue-600 hover:bg-blue-700 focus:ring-blue-500 h-12 text-lg"
+                >
+                  Se connecter
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
       </div>
     </div>
   );
