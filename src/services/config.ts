@@ -9,7 +9,13 @@ export const ENDPOINTS = {
   DOCTORS: '/doctors',
   SERVICES: '/services',
   PATIENTS: '/patients',
-  TRAITEMENTS: '/traitements'  // Add this line
+  TRAITEMENTS: '/traitements',
+  STOCK: {
+    LIST: '/stocks',
+    CREATE: '/stocks',
+    UPDATE: (id: number) => `/stocks/${id}`,
+    DELETE: (id: number) => `/stocks/${id}`,
+  }
 };
 
 export const API_CONFIG = {

@@ -13,8 +13,8 @@ const sidebarItems = [
   { icon: Pill, title: "Traitement", href: "/Page/traitement" },
   { icon: User, title: "Docteur", href: "/Page/docteur" },
   { icon: Folder, title: "Patient", href: "/Page/patient" },
-  { icon: FileText, title: "Dossier Médical", href: "/Page/dossier" },
   { icon: CalendarCheck, title: "Consultation", href: "/Page/consultation" },
+  { icon: FileText, title: "Dossier Médical", href: "/Page/dossier" },
   { icon: CreditCard, title: "Salaire employé", href: "/Page/payement" },
   { icon: CalendarDays, title: "Rendez-vous", href: "/Page/rendez_vous" },
 ];
