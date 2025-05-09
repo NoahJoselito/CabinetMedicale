@@ -57,11 +57,27 @@ export default function Docteur() {
     adresse: '',
     specialité: ''
   });
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(5);
   const [editingDoctor, setEditingDoctor] = useState<Doctor | null>(null);
   const [deletingDoctor, setDeletingDoctor] = useState<Doctor | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(5);
+  
+  const handlePageChange = (pageNumber: number) => {
+    setCurrentPage(pageNumber);
+  };
+
+  const handleItemsPerPageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setItemsPerPage(Number(e.target.value));
+    setCurrentPage(1);
+  };
+
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentDoctors = doctors.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(doctors.length / itemsPerPage);
   
   // Fonction pour gérer les changements des champs
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -150,39 +166,18 @@ export default function Docteur() {
   
   const handleConfirmDelete = async () => {
     if (!deletingDoctor) return;
-    
-    // Ajout d'un état de chargement pour la suppression
-    const deleteLoadingToast = toast.loading("Suppression en cours...");
+    setIsDeleting(true);
     
     try {
       await doctorService.deleteDoctor(deletingDoctor.id);
-      
-      // Mettre à jour le toast de chargement avec un message de succès
-      toast.update(deleteLoadingToast, {
-        render: ` Le docteur ${deletingDoctor.name} ${deletingDoctor.prenom} a été supprimé avec succès`,
-        type: "success",
-        isLoading: false,
-        autoClose: 3000,
-        closeOnClick: true,
-        draggable: true,
-      });
-      
-      // Rafraîchir la liste
+      toast.success(`Le docteur ${deletingDoctor.name} ${deletingDoctor.prenom} a été supprimé avec succès`);
       const response = await doctorService.getDoctors();
       setDoctors(response.data);
     } catch (error: any) {
       const errorMessage = error.response?.data?.message || "Erreur lors de la suppression";
-      
-      // Mettre à jour le toast de chargement avec un message d'erreur
-      toast.update(deleteLoadingToast, {
-        render: ` ${errorMessage}`,
-        type: "error",
-        isLoading: false,
-        autoClose: 3000,
-        closeOnClick: true,
-        draggable: true,
-      });
+      toast.error(errorMessage);
     } finally {
+      setIsDeleting(false);
       setShowDeleteModal(false);
       setDeletingDoctor(null);
     }
@@ -203,15 +198,6 @@ export default function Docteur() {
 
     fetchDoctors();
   }, []);
-
-  // Calculer les indices pour la pagination
-  const indexOfLastItem = currentPage * itemsPerPage;
-  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentDoctors = doctors.slice(indexOfFirstItem, indexOfLastItem);
-  const totalPages = Math.ceil(doctors.length / itemsPerPage);
-
-  // Fonction pour changer de page
-  const paginate = (pageNumber: number) => setCurrentPage(pageNumber);
 
   if (isLoading) return <Loading />;
 
@@ -255,6 +241,26 @@ export default function Docteur() {
         </div>
 
         <div className="bg-white rounded-lg shadow overflow-hidden">
+          <div className="flex justify-end px-10 py-1 mb-4 text-sm text-gray-600">
+            <div className="flex items-center gap-2">
+              <label htmlFor="itemsPerPage" className="text-sm text-gray-600">
+                Éléments par page :
+              </label>
+              <select
+                id="itemsPerPage"
+                value={itemsPerPage}
+                onChange={handleItemsPerPageChange}
+                className="border rounded px-2 py-1 text-sm"
+              >
+                {[5, 10, 15, 20].map((value) => (
+                  <option key={value} value={value}>
+                    {value}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
@@ -275,9 +281,9 @@ export default function Docteur() {
                     </div>
                   </td>
                 </tr>
-              ) : currentDoctors.length > 0 ? (
+              ) : doctors.length > 0 ? (
                 currentDoctors.map((doctor) => (
-                  <tr key={doctor.id} className="text-gray-900">
+                  <tr key={doctor.id} className="text-gray-900 hover:bg-gray-50 transition-colors duration-150 ease-in-out">
                     <td className="px-6 py-4 whitespace-nowrap">{doctor.name} {doctor.prenom}</td>
                     <td className="px-6 py-4 whitespace-nowrap">{doctor.specialité}</td>
                     <td className="px-6 py-4 whitespace-nowrap">{doctor.email}</td>
@@ -307,63 +313,45 @@ export default function Docteur() {
               )}
             </tbody>
           </table>
-          
-          {/* Pagination Controls */}
-          {doctors.length > itemsPerPage && (
-            <div className="px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
-              <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-                <div>
-                  <p className="text-sm text-gray-700">
-                    Affichage de{' '}
-                    <span className="font-medium">{indexOfFirstItem + 1}</span>{' '}
-                    à{' '}
-                    <span className="font-medium">
-                      {Math.min(indexOfLastItem, doctors.length)}
-                    </span>{' '}
-                    sur <span className="font-medium">{doctors.length}</span> résultats
-                  </p>
-                </div>
-                <div>
-                  <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
-                    <button
-                      onClick={() => paginate(currentPage - 1)}
-                      disabled={currentPage === 1}
-                      className={`relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium ${
-                        currentPage === 1
-                          ? 'text-gray-300 cursor-not-allowed'
-                          : 'text-gray-500 hover:bg-gray-50'
-                      }`}
-                    >
-                      <FaChevronLeft className="h-4 w-4" />
-                    </button>
-                    
-                    {[...Array(totalPages)].map((_, index) => (
-                      <button
-                        key={index + 1}
-                        onClick={() => paginate(index + 1)}
-                        className={`relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium ${
-                          currentPage === index + 1
-                            ? 'z-10 bg-primary text-white border-primary'
-                            : 'text-gray-500 hover:bg-gray-50'
-                        }`}
-                      >
-                        {index + 1}
-                      </button>
-                    ))}
-                    
-                    <button
-                      onClick={() => paginate(currentPage + 1)}
-                      disabled={currentPage === totalPages}
-                      className={`relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium ${
-                        currentPage === totalPages
-                          ? 'text-gray-300 cursor-not-allowed'
-                          : 'text-gray-500 hover:bg-gray-50'
-                      }`}
-                    >
-                      <FaChevronRight className="h-4 w-4" />
-                    </button>
-                  </nav>
-                </div>
+
+          {/* Nouvelle pagination */}
+          {doctors.length > 0 && (
+            <div className="flex justify-end items-center gap-4 mt-4 p-4">
+              <div className="text-sm text-gray-600">
+                Affichage de {indexOfFirstItem + 1} à{' '}
+                {Math.min(indexOfLastItem, doctors.length)} sur{' '}
+                {doctors.length} entrées
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handlePageChange(currentPage - 1)}
+                  disabled={currentPage === 1}
+                  className="cursor-pointer px-3 py-1 rounded bg-blue-500 hover:bg-blue-300 disabled:bg-gray-300 text-sm text-white"
+                >
+                  Précédent
+                </button>
+                
+                {[...Array(totalPages)].map((_, index) => (
+                  <button
+                    key={index}
+                    onClick={() => handlePageChange(index + 1)}
+                    className={`px-3 py-1 rounded text-sm ${
+                      currentPage === index + 1
+                        ? 'bg-blue-500 text-white'
+                        : 'bg-gray-200 hover:bg-gray-300'
+                    }`}
+                  >
+                    {index + 1}
+                  </button>
+                ))}
+                
+                <button
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  disabled={currentPage === totalPages}
+                  className="cursor-pointer px-3 py-1 rounded bg-blue-500 hover:bg-blue-300 disabled:bg-gray-300 text-sm text-white"
+                >
+                  Suivant
+                </button>
               </div>
             </div>
           )}
@@ -481,14 +469,23 @@ export default function Docteur() {
                   setShowDeleteModal(false);
                   setDeletingDoctor(null);
                 }}
+                disabled={isDeleting}
               >
                 Annuler
               </Button>
               <Button
                 variant="danger"
                 onClick={handleConfirmDelete}
+                disabled={isDeleting}
               >
-                Supprimer
+                {isDeleting ? (
+                  <div className="flex items-center">
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
+                    Suppression...
+                  </div>
+                ) : (
+                  'Supprimer'
+                )}
               </Button>
             </div>
           </div>

@@ -82,66 +82,63 @@ const MyComponent = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeletingPatient, setIsDeletingPatient] = useState(false);
-
-  // Update the pagination states
   const [currentPage, setCurrentPage] = useState(1);
-  const [paginatedData, setPaginatedData] = useState<{
-    data: Patient[];
-    current_page: number;
-    last_page: number;
-    total: number;
-  }>({ data: [], current_page: 1, last_page: 1, total: 0 });
+  const [itemsPerPage, setItemsPerPage] = useState(5);
 
+  // Supprimer ces états de pagination
   const fetchPatients = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await patientService.getPatients(currentPage);
-      setPaginatedData({
-        data: response.data.map(patient => ({
-          id: patient.id || 0,
-          name: patient.name || '',
-          prenom: patient.prenom || '',
-          email: patient.email || '',
-          password: patient.password || '',
-          role_id: patient.role_id || 4,
-          numeroTelephone: patient.numeroTelephone || '',
-          date_naissance: patient.date_naissance || '',
-          adresse: patient.adresse || '',
-          antecedents_medicaux: patient.antecedents_medicaux || ''
-        })),
-        current_page: response.current_page,
-        last_page: response.last_page,
-        total: response.total
-      });
+      const response = await patientService.getPatients();
+      setPatients(response.data.map(patient => ({
+        id: patient.id || 0,
+        name: patient.name || '',
+        prenom: patient.prenom || '',
+        email: patient.email || '',
+        password: patient.password || '',
+        role_id: patient.role_id || 4,
+        numeroTelephone: patient.numeroTelephone || '',
+        date_naissance: patient.date_naissance || '',
+        adresse: patient.adresse || '',
+        antecedents_medicaux: patient.antecedents_medicaux || ''
+      })));
     } catch (error) {
       toast.error('Erreur lors du chargement des patients');
     } finally {
       setLoading(false);
     }
-  }, [currentPage]);
+  }, []);
 
   useEffect(() => {
     fetchPatients();
   }, [fetchPatients]);
 
-  // Modify the search handler
+  // Modifier le calcul des patients filtrés
   const handleSearch = useCallback((value: string) => {
     setSearchTerm(value);
-    setCurrentPage(1); // Reset to first page when searching
   }, []);
 
-  // Update the currentPatients calculation
-  const currentPatients = paginatedData.data.filter((patient: Patient) =>
+  const currentPatients = patients.filter((patient: Patient) =>
     (patient?.name ?? '').toLowerCase().includes(searchTerm.toLowerCase()) ||
     (patient?.prenom ?? '').toLowerCase().includes(searchTerm.toLowerCase()) ||
     (patient?.numeroTelephone ?? '').includes(searchTerm) ||
     (patient?.email ?? '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // Update the pagination indices calculation
-  const itemsPerPage = 5; // or whatever your page size is
-  const startIndex = (paginatedData.current_page - 1) * itemsPerPage + 1;
-  const endIndex = Math.min(startIndex + currentPatients.length - 1, paginatedData.total);
+  // Calcul pour la pagination
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const paginatedPatients = currentPatients.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(currentPatients.length / itemsPerPage);
+
+  const handlePageChange = (pageNumber: number) => {
+    setCurrentPage(pageNumber);
+  };
+
+  const handleItemsPerPageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setItemsPerPage(Number(e.target.value));
+    setCurrentPage(1); // Reset to first page when changing items per page
+  };
 
   const resetForm = () => {
     setPatientData(initialPatientData);
@@ -192,24 +189,7 @@ const MyComponent = () => {
       }
       
       closeForm();
-      const response = await patientService.getPatients(currentPage);
-      setPaginatedData({
-        data: response.data.map(patient => ({
-          id: patient.id || 0,
-          name: patient.name || '',
-          prenom: patient.prenom || '',
-          email: patient.email || '',
-          password: patient.password || '',
-          role_id: patient.role_id || 4,
-          numeroTelephone: patient.numeroTelephone || '',
-          date_naissance: patient.date_naissance || '',
-          adresse: patient.adresse || '',
-          antecedents_medicaux: patient.antecedents_medicaux || ''
-        })),
-        current_page: response.current_page,
-        last_page: response.last_page,
-        total: response.total
-      });
+      const response = await patientService.getPatients();
       setPatients(response.data.map(patient => ({
         id: patient.id || 0,
         name: patient.name || '',
@@ -257,24 +237,7 @@ const MyComponent = () => {
       try {
         await patientService.deletePatient(patientToDelete.id);
         toast.success('Patient supprimé avec succès !');
-        const response = await patientService.getPatients(currentPage);
-        setPaginatedData({
-          data: response.data.map(patient => ({
-            id: patient.id || 0,
-            name: patient.name || '',
-            prenom: patient.prenom || '',
-            email: patient.email || '',
-            password: patient.password || '',
-            role_id: patient.role_id || 4,
-            numeroTelephone: patient.numeroTelephone || '',
-            date_naissance: patient.date_naissance || '',
-            adresse: patient.adresse || '',
-            antecedents_medicaux: patient.antecedents_medicaux || ''
-          })),
-          current_page: response.current_page,
-          last_page: response.last_page,
-          total: response.total
-        });
+        const response = await patientService.getPatients();
         setPatients(response.data.map(patient => ({
           id: patient.id || 0,
           name: patient.name || '',
@@ -345,6 +308,26 @@ const MyComponent = () => {
         </div>
 
         <div className="overflow-x-auto">
+          <div className="flex justify-end mb-4">
+            <div className="flex items-center gap-2">
+              <label htmlFor="itemsPerPage" className="text-sm text-gray-600">
+                Éléments par page :
+              </label>
+              <select
+                id="itemsPerPage"
+                value={itemsPerPage}
+                onChange={handleItemsPerPageChange}
+                className="border rounded px-2 py-1 text-sm"
+              >
+                {[5, 10, 15, 20].map((value) => (
+                  <option key={value} value={value}>
+                    {value}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
           <table className="min-w-full bg-white">
             <thead className="bg-gray-100">
               <tr>
@@ -357,8 +340,8 @@ const MyComponent = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {currentPatients.length > 0 ? (
-                currentPatients.map((patient: Patient) => (
+              {paginatedPatients.length > 0 ? (
+                paginatedPatients.map((patient: Patient) => (
                   <tr key={patient.id} className="hover:bg-gray-50">
                     <td className="py-3 px-4">{patient.name}</td>
                     <td className="py-3 px-4">{patient.prenom}</td>
@@ -390,36 +373,53 @@ const MyComponent = () => {
               )}
             </tbody>
           </table>
-        </div>
 
-        <div className="flex justify-between items-center mt-6">
-          <div className="text-sm text-gray-600">
-            Affichage de {startIndex} à {endIndex} sur {paginatedData.total} patients
-          </div>
-          <div className="flex space-x-1">
-            <button 
-              onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-              disabled={currentPage === 1}
-              className={`px-3 py-1 rounded ${currentPage === 1 ? 'bg-gray-200 text-gray-500 cursor-not-allowed' : 'bg-blue-500 text-white hover:bg-blue-600'}`}
-            >
-              Précédent
-            </button>
-            {Array.from({ length: paginatedData.last_page }, (_, i) => (
-              <button
-                key={i + 1}
-                onClick={() => setCurrentPage(i + 1)}
-                className={`px-3 py-1 rounded ${currentPage === i + 1 ? 'bg-blue-600 text-white' : 'bg-gray-200 hover:bg-gray-300'}`}
-              >
-                {i + 1}
-              </button>
-            ))}
-            <button 
-              onClick={() => setCurrentPage(prev => Math.min(prev + 1, paginatedData.last_page))}
-              disabled={currentPage === paginatedData.last_page}
-              className={`px-3 py-1 rounded ${currentPage === paginatedData.last_page ? 'bg-gray-200 text-gray-500 cursor-not-allowed' : 'bg-blue-500 text-white hover:bg-blue-600'}`}
-            >
-              Suivant
-            </button>
+          {/* Remplacer la pagination existante par celle-ci */}
+          {currentPatients.length > 0 && (
+            <div className="flex justify-end items-center gap-4 mt-4">
+              <div className="text-sm text-gray-600">
+                Affichage de {indexOfFirstItem + 1} à{' '}
+                {Math.min(indexOfLastItem, currentPatients.length)} sur{' '}
+                {currentPatients.length} entrées
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handlePageChange(currentPage - 1)}
+                  disabled={currentPage === 1}
+                  className="cursor-pointer px-3 py-1 rounded bg-blue-500 hover:bg-blue-300 disabled:bg-gray-300 text-sm text-white"
+                >
+                  Précédent
+                </button>
+                
+                {[...Array(totalPages)].map((_, index) => (
+                  <button
+                    key={index}
+                    onClick={() => handlePageChange(index + 1)}
+                    className={`px-3 py-1 rounded text-sm ${
+                      currentPage === index + 1
+                        ? 'bg-blue-500 text-white'
+                        : 'bg-gray-200 hover:bg-gray-300'
+                    }`}
+                  >
+                    {index + 1}
+                  </button>
+                ))}
+                
+                <button
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  disabled={currentPage === totalPages}
+                  className="cursor-pointer px-3 py-1 rounded bg-blue-500 hover:bg-blue-300 disabled:bg-gray-300 text-sm text-white"
+                >
+                  Suivant
+                </button>
+              </div>
+            </div>
+          )}
+
+          <div className="flex justify-between items-center mt-6">
+            <div className="text-sm text-gray-600">
+              {currentPatients.length} patient(s) trouvé(s)
+            </div>
           </div>
         </div>
       </div>

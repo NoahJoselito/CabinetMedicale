@@ -9,6 +9,7 @@ export const ENDPOINTS = {
   DOCTORS: '/doctors',
   SERVICES: '/services',
   PATIENTS: '/patients',
+  TRAITEMENTS: '/traitements'  // Add this line
 };
 
 export const API_CONFIG = {

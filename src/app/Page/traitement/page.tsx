@@ -4,6 +4,8 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import { traitementService, Traitement, Service } from '@/services/traitementService';
+import { serviceService } from '@/services/serviceService';
 
 const Loading = () => (
   <div className="min-h-screen flex items-center justify-center bg-gray-100">
@@ -44,49 +46,73 @@ const Loading = () => (
 export default function DossierMedical() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const [traitements, setTraitements] = useState([
-    { id: 1, nom: "Consultation", prix: 20000, services: [1, 2] },
-    { id: 2, nom: "Radiographie", prix: 35000, services: [1, 3] },
-    { id: 3, nom: "Analyse de sang", prix: 15000, services: [1, 4] },
-    { id: 4, nom: "Échographie", prix: 40000, services: [] },
-    { id: 5, nom: "Vaccination", prix: 12000, services: [] },
-    { id: 6, nom: "Physiothérapie", prix: 25000, services: [] },
-    { id: 7, nom: "Consultation spécialiste", prix: 45000, services: [] },
-    { id: 8, nom: "IRM", prix: 120000, services: [] },
-    { id: 9, nom: "Scanner", prix: 80000, services: [] },
-    { id: 10, nom: "Électrocardiogramme", prix: 30000, services: [] },
-  ]);
-  interface Traitement {
-    id: number;
-    nom: string;
-    prix: string;
-    services: number[];
-  }
-
+  const [traitements, setTraitements] = useState<Traitement[]>([]);
   const [nouveauTraitement, setNouveauTraitement] = useState<Traitement>({ 
-    id: 0, 
-    nom: "", 
-    prix: "",
-    services: [] 
-  });
+      id: 0, 
+      nom: "", 
+      prix: "",
+      services: [] as {
+        id: number;
+        icone: string;
+        nom: string;
+        description_courte: string;
+        details: string;
+        horaires: string;
+        created_at: string;
+        updated_at: string;
+        pivot: {
+          traitement_id: number;
+          service_id: number;
+        };
+      }[],
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    });
   const [isEditing, setIsEditing] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(5);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [traitementToDelete, setTraitementToDelete] = useState(null);
-  const [services] = useState([
-    { id: 1, nom: "Consultation générale" },
-    { id: 2, nom: "Urgences" },
-    { id: 3, nom: "Pédiatrie" },
-    { id: 4, nom: "Cardiologie" },
-    { id: 5, nom: "Dentisterie" },
-    { id: 6, nom: "Gynécologie" }
-  ]);
+  const [traitementToDelete, setTraitementToDelete] = useState<number | null>(null);
+  const [services, setServices] = useState<Service[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
+  // Ajouter fonction de rafraîchissement
+  const refreshData = async () => {
+    try {
+      const [traitementData, serviceData] = await Promise.all([
+        traitementService.getAll(),
+        serviceService.getAll()
+      ]);
+      
+      setTraitements(traitementData);
+      setServices(serviceData.map(service => ({
+        ...service,
+        pivot: {
+          traitement_id: 0,
+          service_id: service.id
+        }
+      })));
+    } catch (error) {
+      toast.error('Erreur lors du rafraîchissement des données');
+    }
+  };
+
+  // Rafraîchissement automatique
   useEffect(() => {
-    setTimeout(() => {
+    // Premier chargement
+    const fetchData = async () => {
+      setLoading(true);
+      await refreshData();
       setLoading(false);
-    }, 2000);
+    };
+    fetchData();
+
+    // Configurer l'intervalle de rafraîchissement (toutes les 30 secondes)
+    const intervalId = setInterval(refreshData, 30000);
+
+    // Nettoyer l'intervalle lors du démontage du composant
+    return () => clearInterval(intervalId);
   }, []);
 
   // Pagination logic
@@ -96,79 +122,127 @@ export default function DossierMedical() {
   const totalPages = Math.ceil(traitements.length / itemsPerPage);
 
   const paginate = (pageNumber: number) => setCurrentPage(pageNumber);
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    setIsSubmitting(true); // Début du chargement
     
-    if (isEditing && nouveauTraitement.id) {
-      // Update existing treatment
-      setTraitements(traitements.map(t => 
-        t.id === nouveauTraitement.id 
-          ? { 
-              ...t, 
-              nom: nouveauTraitement.nom, 
-              prix: parseFloat(nouveauTraitement.prix as string),
-              services: nouveauTraitement.services
-            } 
-          : t
-      ));
-      toast.success('Traitement modifié avec succès !');
-    } else {
-      // Add new treatment
-      const newId = traitements.length > 0 ? Math.max(...traitements.map(t => t.id)) + 1 : 1;
-      const nouveauTraitementAvecId = {
-        id: newId,
+    try {
+      const formattedTraitement = {
         nom: nouveauTraitement.nom,
-        prix: parseFloat(nouveauTraitement.prix as string),
-        services: nouveauTraitement.services
+        prix: Number(nouveauTraitement.prix),
+        services: nouveauTraitement.services.map(s => ({
+          id: s.id,
+          icone: s.icone,
+          nom: s.nom,
+          description_courte: s.description_courte,
+          details: s.details,
+          horaires: s.horaires,
+          created_at: s.created_at,
+          updated_at: s.updated_at,
+          pivot: s.pivot
+        }))
       };
-      setTraitements([...traitements, nouveauTraitementAvecId]);
-      toast.success('Nouveau traitement ajouté avec succès !');
+
+      if (isEditing && nouveauTraitement.id) {
+        const updated = await traitementService.update(nouveauTraitement.id, formattedTraitement);
+        setTraitements(traitements.map(t => t.id === updated.id ? updated : t));
+        toast.success('Traitement modifié avec succès !');
+      } else {
+        const created = await traitementService.create(formattedTraitement);
+        setTraitements([...traitements, created]);
+        toast.success('Nouveau traitement ajouté avec succès !');
+      }
+      
+      // Reset form
+      setNouveauTraitement({ 
+        id: 0, 
+        nom: "", 
+        prix: "", 
+        services: [], 
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      });
+      await refreshData(); // Rafraîchir après création/modification
+      setShowForm(false);
+      setIsEditing(false);
+    } catch (error) {
+      toast.error('Une erreur est survenue');
+    } finally {
+      setIsSubmitting(false); // Fin du chargement
     }
-    
-    // Reset form
-    setNouveauTraitement({ id: 0, nom: "", prix: "", services: [] });
-    setShowForm(false);
-    setIsEditing(false);
   };
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     if (name === "service") {
       const serviceId = parseInt(value);
-      const updatedServices = (e.target as HTMLInputElement).checked
-        ? [...nouveauTraitement.services, serviceId]
-        : nouveauTraitement.services.filter(id => id !== serviceId);
+      const selectedService = services.find(s => s.id === serviceId);
+      const updatedServices = (e.target as HTMLInputElement).checked && selectedService
+        ? [...nouveauTraitement.services, {
+            id: serviceId,
+            icone: "",
+            nom: selectedService.nom,
+            description_courte: "",
+            details: "",
+            horaires: "",
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            pivot: {
+              traitement_id: nouveauTraitement.id,
+              service_id: serviceId
+            }
+          }]
+        : nouveauTraitement.services.filter(service => service.id !== serviceId);
       setNouveauTraitement({ ...nouveauTraitement, services: updatedServices });
     } else {
       setNouveauTraitement({ ...nouveauTraitement, [name]: value });
     }
   };  
   const handleEdit = (traitement: {
-    services: never[]; id: number; nom: string; prix: number 
+    services: {
+      pivot: { traitement_id: number; service_id: number; }; id: number; icone: string; nom: string; description_courte: string; details: string; horaires: string; created_at: string; updated_at: string; 
+}[];
+    id: number;
+    nom: string;
+    prix: number;
 }) => {
     setNouveauTraitement({ 
       id: traitement.id, 
       nom: traitement.nom, 
       prix: traitement.prix.toString(),
-      services: traitement.services || []
+      services: (traitement.services || []).map(service => ({
+        ...service,
+        pivot: service.pivot || {
+          traitement_id: traitement.id,
+          service_id: service.id
+        }
+      })),
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
     });
     setIsEditing(true);
     setShowForm(true);
   };
   const handleDelete = (id: number) => {
-    setTraitementToDelete(id as any);
+    setTraitementToDelete(id);
     setShowDeleteConfirm(true);
   };
 
-  const confirmDelete = () => {
-    setTraitements(traitements.filter(t => t.id !== traitementToDelete));
-    setShowDeleteConfirm(false);
-    setTraitementToDelete(null);
-    
-    toast.error('Traitement supprimé avec succès !');
-    
-    // Adjust current page if needed after deletion
-    if (currentTraitements.length === 1 && currentPage > 1) {
-      setCurrentPage(currentPage - 1);
+  const confirmDelete = async () => {
+    setIsDeleting(true);
+    try {
+      await traitementService.delete(traitementToDelete as number);
+      await refreshData(); // Rafraîchir après suppression
+      setShowDeleteConfirm(false);
+      setTraitementToDelete(null);
+      toast.success('Traitement supprimé avec succès !');
+      
+      if (currentTraitements.length === 1 && currentPage > 1) {
+        setCurrentPage(currentPage - 1);
+      }
+    } catch (error) {
+      toast.error('Erreur lors de la suppression');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -177,12 +251,9 @@ export default function DossierMedical() {
     setTraitementToDelete(null);
   };
 
-  // Ajouter cette fonction helper
-  const getServiceNames = (serviceIds: number[]) => {
-    return serviceIds
-      ?.map(id => services.find(s => s.id === id)?.nom)
-      .filter(Boolean)
-      .join(", ");
+  // Update getServiceNames function
+  const getServiceNames = (services: Service[]) => {
+    return services?.map(service => service.nom).join(", ") || "";
   };
 
   if (loading) { return <Loading />;}
@@ -206,7 +277,14 @@ export default function DossierMedical() {
         <h1 className="text-gray-600 text-2xl font-bold">Traitement Médical</h1>
         <button 
           onClick={() => {
-            setNouveauTraitement({ id: 0, nom: "", prix: "", services: [] });
+            setNouveauTraitement({ 
+              id: 0, 
+              nom: "", 
+              prix: "", 
+              services: [],
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            });
             setIsEditing(false);
             setShowForm(true);
           }}          className="cursor-pointer bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg shadow-md transition-all duration-300 flex items-center"
@@ -233,13 +311,17 @@ export default function DossierMedical() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {currentTraitements.map((traitement) => (
-                <tr key={traitement.id} className="hover:bg-gray-50">
+              {currentTraitements.map((traitement, index) => (
+                <tr key={`traitement-${traitement.id}-${index}`} className="hover:bg-gray-50">
                   <td className="py-3 px-4 text-sm text-gray-500">{traitement.id}</td>
                   <td className="py-3 px-4 text-sm text-gray-500">{traitement.nom}</td>
-                  <td className="py-3 px-4 text-sm text-gray-500">{traitement.prix.toLocaleString()} Ar</td>
                   <td className="py-3 px-4 text-sm text-gray-500">
-                    {getServiceNames(traitement.services)}
+                    {typeof traitement.prix === 'string' 
+                      ? parseFloat(traitement.prix).toLocaleString()
+                      : traitement.prix?.toLocaleString() || '0'} Ar
+                  </td>
+                  <td className="py-3 px-4 text-sm text-gray-500">
+                    {getServiceNames(traitement.services || [])}
                   </td>
                   <td className="py-3 px-4 text-sm text-gray-500">
                     <div className="flex space-x-2">
@@ -247,7 +329,7 @@ export default function DossierMedical() {
                               onClick={() => handleEdit({
                               id: traitement.id,
                               nom: traitement.nom,
-                              prix: traitement.prix,
+                              prix: Number(traitement.prix),
                               services: traitement.services || []
                               })}
                               className="text-blue-500 hover:text-blue-700 cursor-pointer"
@@ -281,15 +363,16 @@ export default function DossierMedical() {
           </div>
           <div className="flex space-x-1">
             <button 
+              key="prev-button"
               onClick={() => paginate(currentPage - 1)}
               disabled={currentPage === 1}
               className={`px-3 py-1 rounded ${currentPage === 1 ? 'bg-gray-200 text-gray-500 cursor-not-allowed' : 'bg-blue-500 text-white hover:bg-blue-600 cursor-pointer'}`}
             >
               Précédent
             </button>
-            {Array.from({ length: totalPages }, (_, i) => (
+            {Array.from({ length: totalPages }).map((_, i) => (
               <button
-                key={i + 1}
+                key={`page-button-${i + 1}`}
                 onClick={() => paginate(i + 1)}
                 className={`px-3 py-1 rounded ${currentPage === i + 1 ? 'bg-blue-600 text-white' : 'bg-gray-200 hover:bg-gray-300'}`}
               >
@@ -297,6 +380,7 @@ export default function DossierMedical() {
               </button>
             ))}
             <button 
+              key="next-button"
               onClick={() => paginate(currentPage + 1)}
               disabled={currentPage === totalPages}
               className={`px-3 py-1 rounded ${currentPage === totalPages ? 'bg-gray-200 text-gray-500 cursor-not-allowed' : 'bg-blue-500 text-white hover:bg-blue-600 cursor-pointer'}`}
@@ -367,14 +451,14 @@ export default function DossierMedical() {
               Services associés
             </label>
             <div className="space-y-2 max-h-48 overflow-y-auto border border-gray-300 rounded-md p-3">
-              {services.map(service => (
-                <div key={service.id} className="flex items-center">
+              {services.map((service, index) => (
+                <div key={`service-checkbox-${service.id}-${index}`} className="flex items-center">
                   <input
                     type="checkbox"
                     id={`service-${service.id}`}
                     name="service"
                     value={service.id}
-                    checked={nouveauTraitement.services.includes(service.id)}
+                    checked={nouveauTraitement.services.some(s => s.id === service.id)}
                     onChange={handleChange}
                     className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded cursor-pointer"
                   />
@@ -388,9 +472,22 @@ export default function DossierMedical() {
           
           <button
             type="submit"
-            className="cursor-pointer w-full bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded-md shadow-sm transition-colors duration-300"
+            disabled={isSubmitting}
+            className={`cursor-pointer w-full bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded-md shadow-sm transition-colors duration-300 flex items-center justify-center ${
+              isSubmitting ? 'opacity-75 cursor-not-allowed' : ''
+            }`}
           >
-            {isEditing ? "Mettre à jour" : "Enregistrer"}
+            {isSubmitting ? (
+              <>
+                <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                {isEditing ? "Mise à jour..." : "Enregistrement..."}
+              </>
+            ) : (
+              isEditing ? "Mettre à jour" : "Enregistrer"
+            )}
           </button>
         </form>
       </motion.div>
@@ -425,9 +522,22 @@ export default function DossierMedical() {
                 </button>
                 <button
                   onClick={confirmDelete}
-                  className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-md transition-colors cursor-pointer"
+                  disabled={isDeleting}
+                  className={`px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-md transition-colors cursor-pointer flex items-center ${
+                    isDeleting ? 'opacity-75 cursor-not-allowed' : ''
+                  }`}
                 >
-                  Supprimer
+                  {isDeleting ? (
+                    <>
+                      <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Suppression...
+                    </>
+                  ) : (
+                    'Supprimer'
+                  )}
                 </button>
               </div>
             </div>
