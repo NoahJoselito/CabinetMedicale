@@ -21,10 +21,45 @@ const sidebarItems = [
 
 const Sidebar = () => {
   const pathname = usePathname();
+  const [error, setError] = useState(null);
 
   if (pathname === '/login') {
     return null;
   }
+
+  const handleLogout = async () => {
+    try {
+      setError(null);
+      
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Aucun token trouvé');
+      }
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/logout`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+      });
+
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.message || 'Erreur lors de la déconnexion');
+      }
+
+      localStorage.removeItem('token');
+      localStorage.clear();
+      window.location.href = '/Formulaire/login';
+      
+    } catch (err) {
+      console.error('Détails de l\'erreur:', err);
+      setError(err.message || 'Une erreur est survenue lors de la déconnexion');
+    }
+  };
 
   return (
     <>
@@ -46,12 +81,18 @@ const Sidebar = () => {
 
         <div>
           <ul className="mt-4 space-y-2">
-            <Link href="/Formulaire/login">
+            <button 
+              onClick={handleLogout}
+              className="w-full"
+            >
               <li className="flex items-center space-x-3 p-2 rounded-md hover:bg-red-100 text-red-500 cursor-pointer">
                 <LogOut size={20} />
                 <span>Déconnexion</span>
               </li>
-            </Link>
+            </button>
+            {error && (
+              <p className="text-red-500 text-sm text-center">{error}</p>
+            )}
           </ul>
         </div>
       </div>

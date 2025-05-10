@@ -77,7 +77,8 @@ export default function DashboardLayout({
         </header>
 
         {/* Contenu principal */}
-        <section className="p-4">{children}</section>
+        <section className="p-4">{children}
+        </section>
       </main>
     </div>
   );
