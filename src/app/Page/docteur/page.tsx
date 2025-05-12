@@ -43,6 +43,7 @@ const Loading = () => (
 
 export default function Docteur() {
   const [doctors, setDoctors] = useState<Doctor[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -76,8 +77,16 @@ export default function Docteur() {
 
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentDoctors = doctors.slice(indexOfFirstItem, indexOfLastItem);
-  const totalPages = Math.ceil(doctors.length / itemsPerPage);
+
+  const filteredDoctors = doctors.filter(doctor => 
+    doctor.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    doctor.prenom.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    doctor.specialité.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    doctor.email.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const currentDoctors = filteredDoctors.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(filteredDoctors.length / itemsPerPage);
   
   // Fonction pour gérer les changements des champs
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -240,27 +249,28 @@ export default function Docteur() {
           </Button>
         </div>
 
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          <div className="flex justify-end px-10 py-1 mb-4 text-sm text-gray-600">
-            <div className="flex items-center gap-2">
-              <label htmlFor="itemsPerPage" className="text-sm text-gray-600">
-                Éléments par page :
-              </label>
-              <select
-                id="itemsPerPage"
-                value={itemsPerPage}
-                onChange={handleItemsPerPageChange}
-                className="border rounded px-2 py-1 text-sm"
-              >
-                {[5, 10, 15, 20].map((value) => (
-                  <option key={value} value={value}>
-                    {value}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
+        <div className="mb-4">
+          <Input
+            type="text"
+            placeholder=" Rechercher un docteur par nom, prénom, spécialité ou email..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full max-w-md pl-10" name={""}          />
+          <svg
+            className="absolute left-3 top-27 h-5 w-5 text-gray-400"
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 20 20"
+            fill="currentColor"
+            >
+            <path
+              fillRule="evenodd"
+              d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z"
+              clipRule="evenodd"
+            />
+          </svg>
+        </div>
 
+        <div className="bg-white rounded-lg shadow overflow-hidden">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
@@ -313,6 +323,25 @@ export default function Docteur() {
               )}
             </tbody>
           </table>
+          <div className="flex justify-end px-10 py-1 mb-4 text-sm text-gray-600">
+            <div className="flex items-center gap-2">
+              <label htmlFor="itemsPerPage" className="text-sm text-gray-600">
+                Éléments par page :
+              </label>
+              <select
+                id="itemsPerPage"
+                value={itemsPerPage}
+                onChange={handleItemsPerPageChange}
+                className="border rounded px-2 py-1 text-sm"
+              >
+                {[5, 10, 15, 20].map((value) => (
+                  <option key={value} value={value}>
+                    {value}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
 
           {/* Nouvelle pagination */}
           {doctors.length > 0 && (

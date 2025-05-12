@@ -286,48 +286,26 @@ const MyComponent = () => {
         <div>
           <h1 className="text-2xl font-bold">Patients</h1>
           <h5 className="text-lg">Liste des Patients</h5>
+          <div className="relative w-64 mt-4">
+            <input
+              type="text"
+              className="w-full pl-10 pr-4 py-2 border rounded-lg"
+              placeholder="Rechercher"
+              value={searchTerm}
+              onChange={(e) => handleSearch(e.target.value)}
+            />
+            <BiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+          </div>
         </div>
         <button 
           onClick={() => setIsFormVisible(true)} 
           className="cursor-pointer bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg shadow-md transition-all duration-300 flex items-center z-50"
         >
-          <FaPlus className="mr-2 " /> Ajouter
+          <FaPlus className="mr-2 " /> Ajouter un Patient
         </button>
       </div>
 
       <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-        <div className="relative w-64 mb-6">
-          <input
-            type="text"
-            className="w-full pl-10 pr-4 py-2 border rounded-lg"
-            placeholder="Rechercher"
-            value={searchTerm}
-            onChange={(e) => handleSearch(e.target.value)}
-          />
-          <BiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-        </div>
-
-        <div className="overflow-x-auto">
-          <div className="flex justify-end mb-4">
-            <div className="flex items-center gap-2">
-              <label htmlFor="itemsPerPage" className="text-sm text-gray-600">
-                Éléments par page :
-              </label>
-              <select
-                id="itemsPerPage"
-                value={itemsPerPage}
-                onChange={handleItemsPerPageChange}
-                className="border rounded px-2 py-1 text-sm"
-              >
-                {[5, 10, 15, 20].map((value) => (
-                  <option key={value} value={value}>
-                    {value}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
           <table className="min-w-full bg-white">
             <thead className="bg-gray-100">
               <tr>
@@ -373,6 +351,26 @@ const MyComponent = () => {
               )}
             </tbody>
           </table>
+                  <div className="overflow-x-auto">
+          <div className="flex justify-end mb-4">
+            <div className="flex items-center gap-2">
+              <label htmlFor="itemsPerPage" className="text-sm text-gray-600">
+                Éléments par page :
+              </label>
+              <select
+                id="itemsPerPage"
+                value={itemsPerPage}
+                onChange={handleItemsPerPageChange}
+                className="border rounded px-2 py-1 text-sm"
+              >
+                {[5, 10, 15, 20].map((value) => (
+                  <option key={value} value={value}>
+                    {value}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
 
           {/* Remplacer la pagination existante par celle-ci */}
           {currentPatients.length > 0 && (

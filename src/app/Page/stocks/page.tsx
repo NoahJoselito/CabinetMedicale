@@ -58,7 +58,8 @@ export default function Stocks() {
   const [editingStock, setEditingStock] = useState<any>(null);
   const [services, setServices] = useState<any[]>([]);
   const [nomStock, setNomStock] = useState('');
-
+  const [searchTerm, setSearchTerm] = useState('');
+  
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -78,11 +79,17 @@ export default function Stocks() {
     fetchData();
   }, []);
 
+  // Modifier la logique de filtrage
+  const filteredStocks = stocks.filter(stock =>
+    stock.nom.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    services.find(s => s.id === stock.service_id)?.nom.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+  
   // Pagination
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentStocks = stocks.slice(indexOfFirstItem, indexOfLastItem);
-  const totalPages = Math.ceil(stocks.length / itemsPerPage);
+  const currentStocks = filteredStocks.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(filteredStocks.length / itemsPerPage);
 
   const paginate = (pageNumber: number) => setCurrentPage(pageNumber);
 
@@ -167,20 +174,45 @@ export default function Stocks() {
     <div className="p-6 min-h-screen bg-gray-100">
       <ToastContainer />
       
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex flex-col gap-4 mb-6">
         <h1 className="text-gray-600 text-2xl font-bold">Gestion des Stocks</h1>
-        <button 
-          onClick={() => {
-            resetForm();
-            setShowForm(true);
-          }}
-          className="cursor-pointer bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg shadow-md transition-all duration-300 flex items-center"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-            <path fillRule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clipRule="evenodd" />
-          </svg>
-          Ajouter au stock
-        </button>
+        <div className="flex justify-between items-center text-gray-600">
+          <div className="relative w-64">
+            <input
+              type="text"
+              placeholder="Rechercher un stock..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 pl-10"
+            />
+            <svg
+              className="absolute left-3 top-2.5 h-5 w-5 text-gray-400"
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+              />
+            </svg>
+          </div>
+          <button 
+            onClick={() => {
+              resetForm();
+              setShowForm(true);
+            }}
+            className="cursor-pointer bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg shadow-md transition-all duration-300 flex items-center"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clipRule="evenodd" />
+            </svg>
+            Ajouter au stock
+          </button>
+        </div>
       </div>
 
       {/* Liste des stocks */}

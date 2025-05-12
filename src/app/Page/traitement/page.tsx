@@ -76,6 +76,7 @@ export default function DossierMedical() {
   const [services, setServices] = useState<Service[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
 
   // Ajouter fonction de rafraîchissement
   const refreshData = async () => {
@@ -115,11 +116,22 @@ export default function DossierMedical() {
     return () => clearInterval(intervalId);
   }, []);
 
-  // Pagination logic
+  // Move getServiceNames function here, before it's used
+  const getServiceNames = (services: Service[]) => {
+    return services?.map(service => service.nom).join(", ") || "";
+  };
+
+  // Now filteredTraitements can use getServiceNames
+  const filteredTraitements = traitements.filter(traitement =>
+    traitement.nom.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    traitement.prix.toString().includes(searchTerm) ||
+    getServiceNames(traitement.services).toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentTraitements = traitements.slice(indexOfFirstItem, indexOfLastItem);
-  const totalPages = Math.ceil(traitements.length / itemsPerPage);
+  const currentTraitements = filteredTraitements.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(filteredTraitements.length / itemsPerPage);
 
   const paginate = (pageNumber: number) => setCurrentPage(pageNumber);
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -251,11 +263,6 @@ export default function DossierMedical() {
     setTraitementToDelete(null);
   };
 
-  // Update getServiceNames function
-  const getServiceNames = (services: Service[]) => {
-    return services?.map(service => service.nom).join(", ") || "";
-  };
-
   if (loading) { return <Loading />;}
   
   return (
@@ -294,6 +301,31 @@ export default function DossierMedical() {
           </svg>
           Ajouter un traitement
         </button>
+      </div>
+
+      {/* Ajouter la barre de recherche ici */}
+      <div className="flex justify-between items-center mb-6 text-gray-600">
+        <div className="relative">
+          <input
+            type="text"
+            placeholder="Rechercher un traitement..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full px-4 py-2 pl-10 pr-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          />
+          <svg
+            className="absolute left-3 top-2.5 h-5 w-5 text-gray-400"
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 20 20"
+            fill="currentColor"
+          >
+            <path
+              fillRule="evenodd"
+              d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z"
+              clipRule="evenodd"
+            />
+          </svg>
+        </div>
       </div>
 
       {/* Liste des traitements */}
