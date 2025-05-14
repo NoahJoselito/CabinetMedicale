@@ -1,66 +1,52 @@
-'use client';
+"use client"
 
-import { useState, useEffect } from 'react';
-import { Calendar, Clock, Mail, Phone, User } from 'lucide-react';
+import Calendar from "./components/calendar"
 import { motion } from 'framer-motion';
-import Button from "../../components/ui/Button";
-import { useSearchParams } from 'next/navigation';
+import { useEffect, useState } from "react";
+import AddAppointmentForm from './components/AddAppointmentForm'
+
+import { FaCalendarCheck, FaUserMd, FaClock, FaInfoCircle } from 'react-icons/fa'
 
 const Loading = () => (
-  <div className="min-h-screen flex items-center justify-center bg-gray-100">
-    <motion.div
-      className="flex flex-col items-center"
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5 }}
-    >
-      <div className="relative w-24 h-24 flex items-center justify-center">
-        <motion.div 
-          className="absolute w-full h-full border-4 border-blue-500 rounded-full border-t-transparent"
-          animate={{ rotate: 360 }}
-          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-        />
-        <img 
-          src="/img/laod.png" 
-          alt="Chargement" 
-          className="w-16 h-16 rounded-full"
-        />
-      </div>
-
+<div className="min-h-screen flex items-center justify-center bg-gray-100">
+  <motion.div
+    className="flex flex-col items-center"
+    initial={{ opacity: 0, y: 20 }}
+    animate={{ opacity: 1, y: 0 }}
+    transition={{ duration: 0.5 }}
+  >
+   
+    <div className="relative w-24 h-24 flex items-center justify-center">
+     
       <motion.div 
-        className="mt-4 text-xl font-semibold text-blue-500" 
-        animate={{ scale: [1, 1.1, 1] }} 
-        transition={{ duration: 1, repeat: Infinity }}
-      >
-        Chargement de la Réservation...
-      </motion.div>
-      <div className="mt-2 text-gray-600">Préparation de votre espace médical</div>
+        className="absolute w-full h-full border-4 border-blue-500 rounded-full border-t-transparent"
+        animate={{ rotate: 360 }}
+        transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+      />
+     
+      <img 
+        src="../img/laod.png" 
+        alt="Chargement" 
+        className="w-16 h-16 rounded-full"
+      />
+    </div>
+
+    <motion.div 
+      className="mt-4 text-xl font-semibold text-blue-500" 
+      animate={{ scale: [1, 1.1, 1] }} 
+      transition={{ duration: 1, repeat: Infinity }}
+    >
+      Chargement des rendez-vous...
     </motion.div>
-  </div>
+    <div className="mt-2 text-gray-600">Préparation de votre espace médical</div>
+  </motion.div>
+</div>
+
 );
 
-export default function AppointmentForm() {
-  const searchParams = useSearchParams();
-  const serviceFromURL = searchParams.get('service') || '';
+export default function Home() {
   const [loading, setLoading] = useState(true);
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    date: '',
-    time: '',
-    message: '',
-    specialty: '',
-    symptoms: '',
-    urgency: 'normal'
-  });
-
-  useEffect(() => {
-    setFormData((prev) => ({ 
-      ...prev, 
-      specialty: serviceFromURL 
-    }));
-  }, [serviceFromURL]);
+  const [showForm, setShowForm] = useState(false);
 
   useEffect(() => {
     setTimeout(() => {
@@ -68,178 +54,74 @@ export default function AppointmentForm() {
     }, 2000);
   }, []);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  };
-
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    console.log('Rendez-vous réservé:', formData);
-  };
-
   if (loading) return <Loading />;
-
   return (
-    <div className="h-screen overflow-y-auto bg-gray-100">
-      <div className="max-w-lg mx-auto mt-10 p-6 text-gray-600 bg-white shadow-lg rounded-lg">
-        <h2 className="text-2xl font-semibold mb-4 text-center">Réservez un Rendez-vous</h2>
-        
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="flex items-center gap-2 font-medium">
-              <User size={18} /> Informations Personnelles
-            </label>
-            <input
-              name="name"
-              value={formData.name}
-              onChange={handleChange}
-              className="w-full p-2 border rounded mt-2"
-              placeholder="Votre nom complet"
-            />
-          </div>
+    <div className="min-h-screen bg-gray-50 p-4 flex justify-center items-start text-gray-800">
+      <div className="w-full max-w-6xl grid grid-cols-1 md:grid-cols-2 gap-8 bg-white p-6 rounded-2xl shadow-xl">
+        <div className="space-y-6">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-3xl font-bold text-blue-500">
+              Gestion des Rendez-vous
+            </h2>
 
+          </div>
+          <div className="flex justify-end mb-4">
+            <button
+                  onClick={() => setShowForm(true)}
+                  className="cursor-pointer bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2"
+                >
+                  <span>+ Nouveau RDV</span>
+            </button>
+          </div>
+          {/* Statistiques */}
           <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="flex items-center gap-2 font-medium">
-                <Mail size={18} /> Email
-              </label>
-              <input
-                type="email"
-                name="email"
-                value={formData.email}
-                onChange={handleChange}
-                className="w-full p-2 border rounded mt-2"
-                placeholder="votre@email.com"
-              />
+            <div className="p-4 bg-blue-50 rounded-lg">
+              <div className="flex items-center gap-2 text-blue-600">
+                <FaCalendarCheck className="text-xl" />
+                <span className="font-semibold">Aujourd'hui</span>
+              </div>
+              <p className="text-2xl font-bold mt-2">12 RDV</p>
             </div>
-
-            <div>
-              <label className="flex items-center gap-2 font-medium">
-                <Phone size={18} /> Téléphone
-              </label>
-              <input
-                type="tel"
-                name="phone"
-                value={formData.phone}
-                onChange={handleChange}
-                className="w-full p-2 border rounded mt-2"
-                placeholder="XXX XX XXX XX"
-              />
+            <div className="p-4 bg-green-50 rounded-lg">
+              <div className="flex items-center gap-2 text-green-600">
+                <FaUserMd className="text-xl" />
+                <span className="font-semibold">Médecins</span>
+              </div>
+              <p className="text-2xl font-bold mt-2">4 Disponibles</p>
             </div>
           </div>
 
-          <div>
-            <label className="font-medium">Spécialité</label>
-            <select
-              name="specialty"
-              value={formData.specialty}
-              onChange={handleChange}
-              className="w-full border rounded px-3 py-2"
-            >
-              <option value="">Sélectionnez une spécialité</option>
-              <option value="Consultation Générale">Consultation Générale</option>
-              <option value="Pédiatrie">Pédiatrie</option>
-              <option value="Gynécologie">Gynécologie</option>
-              <option value="Cardiologie">Cardiologie</option>
-              <option value="Radiologie">Radiologie</option>
-              <option value="Dermatologie">Dermatologie</option>
-              <option value="Ophtalmologie">Ophtalmologie</option>
-              <option value="Dentisterie">Dentisterie</option>
-              <option value="Kinésithérapie">Kinésithérapie</option>
-            </select>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="flex items-center gap-2 font-medium">
-                <Calendar size={18} /> Date
-              </label>
-              <input
-                type="date"
-                name="date"
-                value={formData.date}
-                onChange={handleChange}
-                className="w-full p-2 border rounded mt-2"
-              />
+          {/* Info Boxes */}
+          <div className="bg-gray-50 p-4 rounded-lg">
+            <div className="flex items-center gap-2 text-gray-700 mb-3">
+              <FaClock className="text-xl text-blue-600" />
+              <h3 className="font-semibold">Horaires de consultation</h3>
             </div>
+            <ul className="space-y-2 text-gray-600">
+              <li>Lundi - Vendredi: 8h00 - 18h00</li>
+              <li>Samedi: 8h00 - 12h00</li>
+              <li>Dimanche: Fermé</li>
+            </ul>
+          </div>
 
-            <div className='cursor-pointer'>
-              <label className="flex items-center gap-2 font-medium">
-                <Clock size={18} /> Heure
-              </label>
-              <input
-                type="time"
-                name="time"
-                value={formData.time}
-                onChange={handleChange}
-                className="w-full p-2 border rounded mt-2"
-              />
+          {/* Notice */}
+          <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
+            <div className="flex items-center gap-2 text-yellow-700">
+              <FaInfoCircle className="text-xl" />
+              <h3 className="font-semibold">Important</h3>
             </div>
+            <p className="mt-2 text-yellow-600">
+              Pour les urgences en dehors des heures de consultation, 
+              veuillez contacter le service d'urgence au 15.
+            </p>
           </div>
+        </div>
 
-          <div>
-            <label className="font-medium">Niveau d'urgence</label>
-            <div className="flex gap-4 mt-2">
-              <label className="flex items-center">
-                <input
-                  type="radio"
-                  name="urgency"
-                  value="normal"
-                  checked={formData.urgency === 'normal'}
-                  onChange={handleChange}
-                  className="mr-2"
-                />
-                Normal
-              </label>
-              <label className="flex items-center">
-                <input
-                  type="radio"
-                  name="urgency"
-                  value="urgent"
-                  checked={formData.urgency === 'urgent'}
-                  onChange={handleChange}
-                  className="mr-2"
-                />
-                Urgent
-              </label>
-            </div>
-          </div>
-
-          <div>
-            <label className="font-medium">Symptômes</label>
-            <textarea
-              name="symptoms"
-              value={formData.symptoms}
-              onChange={handleChange}
-              className="w-full p-2 border rounded mt-2"
-              rows={3}
-              placeholder="Décrivez vos symptômes"
-            />
-          </div>
-
-          <div>
-            <label className="font-medium">Message supplémentaire</label>
-            <textarea
-              name="message"
-              value={formData.message}
-              onChange={handleChange}
-              className="w-full p-2 border rounded mt-2"
-              rows={3}
-              placeholder="Informations complémentaires"
-            />
-          </div>
-
-          <Button 
-            type="submit" 
-            className="w-full bg-blue-600 text-white p-3 rounded hover:bg-blue-700 transition-colors cursor-pointer"
-          >
-            Confirmer le rendez-vous
-          </Button>
-        </form>
+        {showForm ? (
+          <AddAppointmentForm onClose={() => setShowForm(false)} />
+        ) : (
+          <Calendar />
+        )}
       </div>
     </div>
   );
