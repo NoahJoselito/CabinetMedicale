@@ -7,6 +7,9 @@ interface Stock {
   quantite_total: number;
   quantite_carton: number;
   service_id: number;
+  prix: number;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export const stockService = {

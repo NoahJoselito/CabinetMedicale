@@ -11,10 +11,25 @@ export const ENDPOINTS = {
   PATIENTS: '/patients',
   TRAITEMENTS: '/traitements',
   STOCK: {
-    LIST: '/stocks',
+    LIST: '/stocks', // Updated endpoint
     CREATE: '/stocks',
     UPDATE: (id: number) => `/stocks/${id}`,
-    DELETE: (id: number) => `/stocks/${id}`,
+    DELETE: (id: number) => `/stocks/${id}`
+  },
+  CONSULTATIONS: {
+    LIST: '/consultations',  // Make sure this matches your API endpoint
+    CREATE: '/consultations',
+    UPDATE: (id: number) => `/consultations/${id}`,
+    GET_BY_ID: (id: number) => `/consultations/${id}`,
+    CONSPATIENTS: {
+      SEARCH: '/patients/search',
+      LIST: '/patients',
+      CREATE: '/register', // Changed from '/patients' to '/register'
+      UPDATE: (id: number) => `/patients/${id}`,
+      GET_BY_ID: (id: number) => `/patients/${id}`,
+    },
+    TREATMENTS: '/traitements',    // Mettre à jour l'endpoint pour les traitements
+    PRODUCTS: '/stocks',              // Updated path to match backend
   }
 };
 

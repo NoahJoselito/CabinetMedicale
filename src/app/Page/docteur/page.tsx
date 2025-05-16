@@ -234,7 +234,7 @@ export default function Docteur() {
       )}
 
       {/* Content to blur */}
-      <div className={`relative ${isFormOpen ? 'filter blur-md pointer-events-none select-none' : ''}`}>
+      <div className={`relative ${isFormOpen ? 'filter  pointer-events-none select-none' : ''}`}>
         <div className="flex justify-between items-center mb-6">
           <div>
             <h1 className="text-2xl font-bold text-gray-800">Gestion des Docteurs</h1>
@@ -388,7 +388,7 @@ export default function Docteur() {
       </div>
 
       {/* Sliding Form */}
-      <div className={`fixed right-0 top-0 h-full w-96 bg-white/90 backdrop-filter backdrop-blur-md shadow-lg transform transition-transform duration-300 ease-in-out z-50 ${isFormOpen ? 'translate-x-0' : 'translate-x-full'}`}>
+      <div className={`fixed right-0 top-0 h-full w-96 bg-white shadow-lg transform transition-transform duration-300 ease-in-out z-50 ${isFormOpen ? 'translate-x-0' : 'translate-x-full'}`}>
         <div className="p-6 h-full overflow-y-auto">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-xl font-semibold text-gray-600">

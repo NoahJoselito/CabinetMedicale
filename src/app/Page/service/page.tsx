@@ -5,7 +5,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import { div } from 'framer-motion/client';
 import { medicalServiceApi, IMedicalService } from '@/services/medicalServiceApi';
-import { toast } from 'react-toastify';
+import { toast, ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 const Loading = () => (
   <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-blue-50 to-white">
@@ -629,6 +630,19 @@ export default function ServicesPage() {
 
   return (
     <div className='bg-gray-100'>
+      <ToastContainer
+        position="top-right"
+        autoClose={3000}
+        hideProgressBar={false}
+        newestOnTop={false}
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+        theme="light"
+      />
+      
       <ServiceLayout>
         <motion.div
           initial={{ opacity: 0 }}

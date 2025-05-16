@@ -59,6 +59,7 @@ export default function Stocks() {
   const [services, setServices] = useState<any[]>([]);
   const [nomStock, setNomStock] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [prix, setPrix] = useState('');
   
   useEffect(() => {
     const fetchData = async () => {
@@ -102,7 +103,8 @@ export default function Stocks() {
         nom: nomStock,
         quantite_total: unitType === 'unite' ? parseInt(quantity) : parseInt(unitQuantity) * parseInt(packageCount),
         quantite_carton: unitType === 'unite' ? 0 : parseInt(packageCount), // Mettre 0 si c'est à l'unité
-        service_id: parseInt(selectedService) // Now selectedService contains the service ID directly
+        service_id: parseInt(selectedService), // Now selectedService contains the service ID directly
+        prix: parseFloat(prix)
       };
 
       if (isEditing && editingStock) {
@@ -135,6 +137,7 @@ export default function Stocks() {
     setPackageCount('');
     setEditingStock(null);
     setIsEditing(false);
+    setPrix('');
   };
 
   const handleEdit = (stock: any) => {
@@ -145,6 +148,7 @@ export default function Stocks() {
     setPackageCount(stock.quantite_carton.toString());
     setIsEditing(true);
     setShowForm(true);
+    setPrix(stock.prix.toString());
   };
 
   const handleDelete = (id: number) => {
@@ -226,6 +230,7 @@ export default function Stocks() {
                 <th className="py-3 px-4 text-left text-sm font-medium text-gray-600 uppercase tracking-wider">Service</th>
                 <th className="py-3 px-4 text-left text-sm font-medium text-gray-600 uppercase tracking-wider">Nom</th>
                 <th className="py-3 px-4 text-left text-sm font-medium text-gray-600 uppercase tracking-wider">Quantité</th>
+                <th className="py-3 px-4 text-left text-sm font-medium text-gray-600 uppercase tracking-wider">Prix</th>
                 <th className="py-3 px-4 text-left text-sm font-medium text-gray-600 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
@@ -243,6 +248,7 @@ export default function Stocks() {
                       : `${stock.quantite_total} unités`
                     }
                   </td>
+                  <td className="py-3 px-4 text-sm text-gray-500">{stock.prix} Ar</td>
                   <td className="py-3 px-4 text-sm text-gray-500">
                     <div className="flex space-x-2">
                       <button 
@@ -426,6 +432,22 @@ export default function Stocks() {
               </div>
             </>
           )}
+
+          <div className="mb-6">
+            <label className="block text-gray-700 text-sm font-bold mb-2">
+              Prix (Ar)
+            </label>
+            <input
+              type="number"
+              value={prix}
+              onChange={(e) => setPrix(e.target.value)}
+              className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              min="0"
+              step="0.01"
+              required
+              placeholder="Ex: 500"
+            />
+          </div>
 
           <button
             type="submit"

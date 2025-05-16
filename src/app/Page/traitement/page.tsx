@@ -116,15 +116,15 @@ export default function DossierMedical() {
     return () => clearInterval(intervalId);
   }, []);
 
-  // Move getServiceNames function here, before it's used
-  const getServiceNames = (services: Service[]) => {
+  // Update getServiceNames to handle undefined services
+  const getServiceNames = (services: Service[] | undefined) => {
     return services?.map(service => service.nom).join(", ") || "";
   };
 
-  // Now filteredTraitements can use getServiceNames
+  // Update filteredTraitements with null checks
   const filteredTraitements = traitements.filter(traitement =>
-    traitement.nom.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    traitement.prix.toString().includes(searchTerm) ||
+    (traitement.nom?.toLowerCase() || "").includes(searchTerm.toLowerCase()) ||
+    (traitement.prix?.toString() || "").includes(searchTerm) ||
     getServiceNames(traitement.services).toLowerCase().includes(searchTerm.toLowerCase())
   );
 
