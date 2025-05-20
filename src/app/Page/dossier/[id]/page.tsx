@@ -163,7 +163,6 @@ const DossierPage = ({ params }: { params: Promise<{ id: string }> }) => {
                       { label: "Température", value: `${consultation.temperature}°C`, color: "blue" },
                       { label: "Tension", value: consultation.tension, color: "blue" },
                       { label: "Séances", value: consultation.nb_seances, color: "blue" },
-                      { label: "Total", value: `${consultation.total} Ar`, color: "orange" }
                     ].map((item, index) => (
                       <div key={index} className={`bg-${item.color}-50 p-4 rounded-lg`}>
                         <p className={`text-sm text-${item.color}-600 mb-1`}>{item.label}</p>
@@ -173,30 +172,6 @@ const DossierPage = ({ params }: { params: Promise<{ id: string }> }) => {
                   </div>
 
                   <p className="mt-2"><span className="font-semibold">Observation:</span> {consultation.observation}</p>
-                  
-                  {/* Treatments */}
-                  <div className="mt-2">
-                    <h4 className="font-semibold">Traitements:</h4>
-                    <ul className="list-disc list-inside">
-                      {consultation.traitements?.map((traitement) => (
-                        <li key={traitement.id}>
-                          {traitement.nom} - {traitement.pivot.prix} Ar
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-
-                  {/* Payments */}
-                  <div className="mt-2">
-                    <h4 className="font-semibold">Paiements:</h4>
-                    <ul className="list-disc list-inside">
-                      {consultation.paiements?.map((paiement) => (
-                        <li key={paiement.id}>
-                          {paiement.montant} Ar - {new Date(paiement.date_paiement).toLocaleDateString()}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
                 </div>
               ))}
             </div>
