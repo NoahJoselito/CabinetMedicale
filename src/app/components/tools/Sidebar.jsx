@@ -15,8 +15,8 @@ const sidebarItems = [
   { icon: Folder, title: "Patient", href: "/Page/patient" },
   { icon: CalendarCheck, title: "Consultation", href: "/Page/consultation" },
   { icon: FileText, title: "Dossier Médical", href: "/Page/dossier" },
-  { icon: CreditCard, title: "Salaire employé", href: "/Page/payement" },
   { icon: CalendarDays, title: "Rendez-vous", href: "/Page/rendez_vous" },
+   { icon: CreditCard, title: "Salaire employé", href: "/Page/payement" },
 ];
 
 const Sidebar = () => {

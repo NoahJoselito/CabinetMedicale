@@ -17,7 +17,7 @@ export const ENDPOINTS = {
     DELETE: (id: number) => `/stocks/${id}`
   },
   CONSULTATIONS: {
-    LIST: '/consultations',  // Make sure this matches your API endpoint
+    LIST: '/consultations',
     CREATE: '/consultations',
     UPDATE: (id: number) => `/consultations/${id}`,
     GET_BY_ID: (id: number) => `/consultations/${id}`,
@@ -26,7 +26,8 @@ export const ENDPOINTS = {
       LIST: '/patients',
       CREATE: '/register', // Changed from '/patients' to '/register'
       UPDATE: (id: number) => `/patients/${id}`,
-      GET_BY_ID: (id: number) => `/patients/${id}`,
+      GET_BY_ID: (id: number) => `/patients/${id}`, // Use this for patient details
+      GET_CONSULTATIONS: (id: number) => `/consultations/patients/${id}/consultations`, // Updated endpoint path
     },
     TREATMENTS: '/traitements',    // Mettre à jour l'endpoint pour les traitements
     PRODUCTS: '/stocks',              // Updated path to match backend

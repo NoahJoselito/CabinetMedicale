@@ -32,13 +32,12 @@ export const medicalServiceApi = {
         try {
             const response = await axiosInstance.get(ENDPOINTS.SERVICES);
             console.log('API Response:', response.data); // Pour debug
-            return { data: response.data };
+            return { service: null, data: response.data };
         } catch (error: any) {
             console.error('API Error:', error); // Pour debug
             throw new Error(error.response?.data?.message || 'Erreur lors de la récupération des services');
         }
     },
-
     getServiceById: async (id: number): Promise<IApiResponse<IMedicalService>> => {
         try {
             const response = await axiosInstance.get(`${ENDPOINTS.SERVICES}/${id}`);
