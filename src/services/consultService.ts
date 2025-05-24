@@ -76,71 +76,99 @@ export interface Consultation {
   }[];
 }
 
-interface ConsultationResponse {
-  message: string;
-  consultation: {
+export interface ConsultationResponse {
+  consultation: any;
+  completedSeances: number;
+  seanceCount: number;
+  id: number;
+  user_id: number;
+  date_consultation: string;
+  nb_seances: number;
+  seancerestant: number | null;
+  total: string;
+  observation: string;
+  temperature: string;
+  tension: string;
+  created_at: string;
+  updated_at: string;
+  payementrestant: number;
+  statuspaiement: string;
+  statusseance: string;
+  patient: {
+    id: number;
+    name: string;
+    email: string;
+    prenom: string;
+    numeroTelephone: string;
+    date_naissance: string | null;
+    adresse: string | null;
+  };
+  traitements: Array<{
+    id: number;
+    nom: string;
+    prix: string;
+    pivot: {
+      consultation_id: number;
+      traitement_id: number;
+      prix: string;
+    };
+  }>;
+  produits: Array<{
+    id: number;
+    nom: string;
+    quantite_total: number;
+    prix: string;
+    pivot: {
+      consultation_id: number;
+      stock_id: number;
+      prix: string;
+    };
+  }>;
+  paiements: Array<{
+    id: number;
+    consultation_id: number;
+    montant: string;
+    date_paiement: string;
+    type: 'espece' | 'mobilemoney' | 'prisencharge';
+  }>;
+  antecedents: Array<{
     id: number;
     user_id: number;
-    date_consultation: string;
-    nb_seances: number;
-    total: number;
-    observation: string;
-    temperature: number;
-    tension: string;
-    created_at: string;
-    updated_at: string;
-    patient: Patient;
-    traitements: Array<{
-      id: number;
-      nom: string;
-      prix: string;
-      created_at: string;
-      updated_at: string;
-      pivot: {
-        consultation_id: number;
-        traitement_id: number;
-        prix: string;
-        created_at: string;
-        updated_at: string;
-      };
-    }>;
-    produits: Array<{
-      id: number;
-      nom: string;
-      quantite_total: number;
-      prix: string;
-      // ...other fields...
-      pivot: {
-        consultation_id: number;
-        stock_id: number;
-        prix: string;
-        created_at: string;
-        updated_at: string;
-      };
-    }>;
-    paiements: Array<{
-      id: number;
+    titre: string;
+    description: string | null;
+    pivot: {
       consultation_id: number;
-      montant: string;
-      date_paiement: string;
-      created_at: string;
-      updated_at: string;
-    }>;
-    antecedents: Array<{
-      id: number;
-      user_id: number;
-      titre: string;
-      description: string | null;
-      created_at: string;
-      updated_at: string;
-      pivot: {
-        consultation_id: number;
-        antecedent_id: number;
-        created_at: string;
-        updated_at: string;
-      };
-    }>;
+      antecedent_id: number;
+    };
+  }>;
+}
+
+export interface PaymentRequest {
+  consultation_id: number;
+  montant: string;
+  type: 'espece' | 'mobilemoney' | 'prisencharge';
+  date_paiement: string;
+  numero_mobile?: string;
+  numero_dossier?: string;
+  organisme?: string;
+}
+
+export interface PaymentResponse {
+  Message: string;
+  consultation: {
+    consultation_id: number;
+    montant: number;
+    date_paiement: string;
+    type: 'espece' | 'mobilemoney' | 'prisencharge';
+    updated_at: string;
+    created_at: string;
+    id: number;
   };
+  "Reste à payer": number;
+}
+
+export interface PaymentRemaining {
+  payementrestant: number;
 }
 
 export const consultService = {
@@ -272,13 +300,111 @@ export const consultService = {
       return [];
     }
   },
-  getConsultations: async (): Promise<ConsultationResponse[]> => {
+  getConsultations: async (): Promise<{consultations: ConsultationResponse[]}> => {
     try {
       const response = await axiosInstance.get(ENDPOINTS.CONSULTATIONS.LIST);
-      console.log('Consultations response:', response.data);
-      return response.data.consultations || [];
+      return response.data;
     } catch (error) {
       console.error('Error fetching consultations:', error);
+      throw error;
+    }
+  },
+  validateSeance: async (consultationId: number): Promise<ConsultationResponse> => {
+    const maxRetries = 3;
+    let attempt = 0;
+
+    while (attempt < maxRetries) {
+      try {
+        const response = await axiosInstance.get(
+          `${ENDPOINTS.CONSULTATIONS.VALIDATE_SEANCE}/${consultationId}`,
+          { timeout: 30000 } // Override timeout for this specific request
+        );
+        return response.data;
+      } catch (error: any) {
+        attempt++;
+        
+        if (attempt === maxRetries) {
+          console.error(`Failed to validate seance after ${maxRetries} attempts:`, error);
+          throw new Error('La validation de la séance a échoué. Veuillez réessayer.');
+        }
+        
+        // Wait before retrying
+        await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+      }
+    }
+
+    throw new Error('La validation de la séance a échoué. Veuillez réessayer.');
+  },
+  makePayment: async (paymentData: PaymentRequest): Promise<PaymentResponse> => {
+    try {
+      // Log de débogage
+      console.log('Making payment with data:', paymentData);
+
+      // Formater correctement les données
+      const formattedPayment = {
+        consultation_id: paymentData.consultation_id,
+        montant: paymentData.montant,
+        date_paiement: paymentData.date_paiement,
+        type: paymentData.type,
+        ...(paymentData.type === 'mobilemoney' && { numero_mobile: paymentData.numero_mobile }),
+        ...(paymentData.type === 'prisencharge' && {
+          numero_dossier: paymentData.numero_dossier,
+          organisme: paymentData.organisme
+        })
+      };
+
+      // Log des données formatées
+      console.log('Formatted payment data:', formattedPayment);
+
+      const response = await axiosInstance.post(
+        ENDPOINTS.CONSULTATIONS.PAYMENTS,
+        formattedPayment,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          timeout: 10000 // 10 secondes de timeout
+        }
+      );
+
+      // Log de la réponse
+      console.log('Payment response:', response);
+
+      if (!response.data) {
+        throw new Error('Réponse vide du serveur');
+      }
+
+      return response.data;
+    } catch (error: any) {
+      // Log détaillé de l'erreur
+      console.error('Payment error details:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        headers: error.response?.headers,
+        requestData: paymentData
+      });
+
+      if (error.response) {
+        throw {
+          message: error.response.data?.message || 'Erreur lors du paiement',
+          status: error.response.status,
+          data: error.response.data
+        };
+      }
+
+      throw new Error('Erreur de connexion au serveur');
+    }
+  },
+  getPaymentRemaining: async (consultationId: number): Promise<PaymentRemaining> => {
+    try {
+      const response = await axiosInstance.get(
+        ENDPOINTS.CONSULTATIONS.PAYMENT_REMAINING(consultationId)
+      );
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching remaining payment:', error);
       throw error;
     }
   },

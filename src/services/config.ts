@@ -31,6 +31,9 @@ export const ENDPOINTS = {
     },
     TREATMENTS: '/traitements',    // Mettre à jour l'endpoint pour les traitements
     PRODUCTS: '/stocks',              // Updated path to match backend
+    VALIDATE_SEANCE: '/consultations/addseance',
+    PAYMENTS: '/payments',
+    PAYMENT_REMAINING: (id: number) => `/payments/restant/${id}`,
   }
 };
 

@@ -51,7 +51,7 @@ export default function DossierMedical() {
   const [totalPrice, setTotalPrice] = useState(0);
   const [paymentType, setPaymentType] = useState('totalite');
   const [avance, setAvance] = useState<string>('');
-  const [modePayment, setModePayment] = useState<'espece' | 'mobilemoney' | 'prisencharge'>('espece');
+  const [modePayment, setModePayment] = useState<'espece' | 'mobilemoney' | 'prisencharge' | 'differe'>('espece');
   const [selectedMedicaments, setSelectedMedicaments] = useState<number[]>([]);
   const [antecedents, setAntecedents] = useState<{id: number, titre: string, description?: string}[]>([]);
   const [nextAntecedentId, setNextAntecedentId] = useState(1);
@@ -360,7 +360,7 @@ useEffect(() => {
         })),
         traitements: selectedTreatments,
         produits: selectedMedicaments,
-        paiements: [{
+        paiements: modePayment === 'differe' ? [] : [{
           montant: paymentType === 'totalite' ? totalPrice : parseFloat(avance) || 0,
           date: dateConsultation,
           type: modePayment,
@@ -676,7 +676,7 @@ useEffect(() => {
           {/* Mode de paiement selection UI */}
           <div className="mb-6">
             <label className="block text-gray-700 mb-2">Mode de paiement</label>
-            <div className="grid grid-cols-3 gap-4 mb-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
               <button
                 type="button"
                 onClick={() => setModePayment('espece')}
@@ -709,6 +709,17 @@ useEffect(() => {
                 }`}
               >
                 Prise en charge
+              </button>
+              <button
+                type="button"
+                onClick={() => setModePayment('differe')}
+                className={`p-3 border rounded-md cursor-pointer ${
+                  modePayment === 'differe' 
+                    ? 'bg-blue-600 text-white' 
+                    : 'bg-white text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                Paiement différé
               </button>
             </div>
             

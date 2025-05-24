@@ -4,6 +4,8 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { FiFilter, FiSearch, FiCalendar } from 'react-icons/fi';
 import Link from 'next/link';
+import { toast } from 'react-toastify';
+import { consultService, ConsultationResponse, PaymentRequest } from '@/services/consultService';
 
 const Loading = () => (
   <div className="min-h-screen flex items-center justify-center bg-gray-100">
@@ -42,6 +44,76 @@ export default function DossierMedical() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [selectedSeance, setSelectedSeance] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(5);
+  const [consultations, setConsultations] = useState<ConsultationResponse[]>([]);
+  const [isValidating, setIsValidating] = useState(false);
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  
+  // Load consultations on mount
+  useEffect(() => {
+    const loadConsultations = async () => {
+      try {
+        const data = await consultService.getConsultations();
+        // Mettre à jour les montants restants
+        const consultationsWithRemaining = await Promise.all(
+          data.consultations.map(async (consultation) => {
+            if (consultation.statuspaiement !== 'Payé') {
+              try {
+                const remaining = await consultService.getPaymentRemaining(consultation.id);
+                return {
+                  ...consultation,
+                  payementrestant: remaining.payementrestant
+                };
+              } catch (error) {
+                console.error(`Error fetching remaining for consultation ${consultation.id}:`, error);
+                return consultation;
+              }
+            }
+            return consultation;
+          })
+        );
+        setConsultations(consultationsWithRemaining);
+      } catch (error) {
+        console.error('Failed to load consultations:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadConsultations();
+  }, []);
+
+  // Filter consultations based on search and filters
+  const filteredConsultations = consultations.filter(consultation => {
+    if (filterStatus === 'paid' && consultation.statuspaiement !== 'Payé') return false;
+    if (filterStatus === 'unpaid' && consultation.statuspaiement === 'Payé') return false;
+    
+    const searchString = `${consultation.patient.name} ${consultation.patient.prenom}`.toLowerCase();
+    return searchString.includes(searchTerm.toLowerCase());
+  });
+
+  // Get all unique treatments for the filter
+  const allTreatments = [...new Set(consultations.flatMap(c => 
+    c.traitements.map(t => t.nom)
+  ))];
+
+  // Pagination
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentItems = filteredConsultations.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(filteredConsultations.length / itemsPerPage);
+
+  const [currentPatient, setCurrentPatient] = useState<{
+    id: number;
+    name: string;
+    seance: string;
+    amount: number;
+    paid: boolean;
+    seanceCount: number;
+    completedSeances: number;
+  } | null>(null);
+  
   const [showSeanceModal, setShowSeanceModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showCashModal, setShowCashModal] = useState(false);
@@ -54,62 +126,85 @@ export default function DossierMedical() {
   const [cardCVC, setCardCVC] = useState('');
   const [mobileNumber, setMobileNumber] = useState('');
   const [mobileCode, setMobileCode] = useState('');
+  const [validateAllSeances, setValidateAllSeances] = useState(false);
+  const [numeroDossier, setNumeroDossier] = useState('');
+  const [organisme, setOrganisme] = useState('');
   
-  // Pagination state
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(5);
-  
-  const [currentPatient, setCurrentPatient] = useState<{
-    id: number;
-    name: string;
-    seance: string;
-    amount: number;
-    paid: boolean;
-    seanceCount: number;
-    completedSeances: number;
-  } | null>(null);
-  
-  const [patients, setPatients] = useState([
-    { id: 1, name: "Jean Dupont", seance: "Consultation générale", amount: 3500, paid: false, seanceCount: 5, completedSeances: 3 },
-    { id: 2, name: "Marie Martin", seance: "Suivi médical", amount: 2200, paid: false, seanceCount: 3, completedSeances: 2 },
-    { id: 3, name: "Pierre Durand", seance: "Examen cardiaque", amount: 1800, paid: false, seanceCount: 2, completedSeances: 0 },
-    { id: 4, name: "Sophie Lefebvre", seance: "Consultation spécialiste", amount: 1900, paid: false, seanceCount: 4, completedSeances: 1 },
-    { id: 5, name: "Jean Dupont", seance: "Contrôle annuel", amount: 3500, paid: false, seanceCount: 1, completedSeances: 0 },
-    { id: 6, name: "Marie Martin", seance: "Vaccination", amount: 2200, paid: false, seanceCount: 1, completedSeances: 0 },
-    { id: 7, name: "Pierre Durand", seance: "Consultation urgente", amount: 1800, paid: false, seanceCount: 1, completedSeances: 0 },
-    { id: 8, name: "Sophie Lefebvre", seance: "Suivi traitement", amount: 1900, paid: false, seanceCount: 6, completedSeances: 4 },
-  ]);
-
-  const seances = [...new Set(patients.map(patient => patient.seance))];
+  // Function to change page
+  const paginate = (pageNumber: number) => setCurrentPage(pageNumber);
 
   const handleSeanceValidation = (id: number) => {
-    const patient = patients.find(p => p.id === id);
-    setCurrentPatient(patient || null);
+    const consultation = consultations.find(c => c.id === id);
+    if (consultation) {
+      setCurrentPatient({
+        id: consultation.id,
+        name: `${consultation.patient.name} ${consultation.patient.prenom}`,
+        seance: consultation.traitements.map(t => t.nom).join(', '),
+        amount: Number(consultation.total),
+        paid: consultation.statuspaiement === 'Payé',
+        seanceCount: consultation.nb_seances,
+        completedSeances: consultation.nb_seances - (consultation.seancerestant || 0)
+      });
+    } else {
+      setCurrentPatient(null);
+    }
     setShowSeanceModal(true);
   };
 
   const handlePaymentValidation = (id: number) => {
-    const patient = patients.find(p => p.id === id);
-    setCurrentPatient(patient || null);
+    const consultation = consultations.find(p => p.id === id);
+    if (consultation) {
+      setCurrentPatient({
+        id: consultation.id,
+        name: `${consultation.patient.name} ${consultation.patient.prenom}`,
+        seance: consultation.traitements.map(t => t.nom).join(', '),
+        amount: Number(consultation.total),
+        paid: consultation.statuspaiement === 'Payé',
+        seanceCount: consultation.seanceCount || 0,
+        completedSeances: consultation.completedSeances || 0
+      });
+    } else {
+      setCurrentPatient(null);
+    }
     setPaymentMethod('cash');
     setShowPaymentModal(true);
   };
 
-  const confirmSeance = () => {
+  const confirmSeance = async () => {
     if (currentPatient) {
-      const newCompletedSeances = currentPatient.completedSeances + 1;
-      const isCompleted = newCompletedSeances >= currentPatient.seanceCount;
-      
-      setPatients(patients.map(patient => 
-        patient.id === currentPatient.id ? { 
-          ...patient, 
-          completedSeances: newCompletedSeances,
-          paid: isCompleted
-        } : patient
-      ));
-      
-      setShowSeanceModal(false);
-      setCurrentPatient(null);
+      setIsValidating(true);
+      try {
+        if (validateAllSeances) {
+          // Validate remaining seances one by one
+          const remainingSeances = currentPatient.seanceCount - currentPatient.completedSeances;
+          for (let i = 0; i < remainingSeances; i++) {
+            await consultService.validateSeance(currentPatient.id);
+          }
+          toast.success(`${remainingSeances} séances ont été validées avec succès`);
+          toast.info('Traitement terminé');
+        } else {
+          const response = await consultService.validateSeance(currentPatient.id);
+          toast.success('Séance validée avec succès');
+          
+          // Check if this was the last seance
+          if (currentPatient.completedSeances + 1 >= currentPatient.seanceCount) {
+            toast.info('Toutes les séances ont été complétées');
+          }
+        }
+        
+        // Refresh consultations list
+        const data = await consultService.getConsultations();
+        setConsultations(data.consultations);
+        
+        setShowSeanceModal(false);
+        setCurrentPatient(null);
+        setValidateAllSeances(false);
+      } catch (error: any) {
+        console.error('Failed to validate seance:', error);
+        toast.error(error.message || 'Une erreur est survenue lors de la validation de la séance');
+      } finally {
+        setIsValidating(false);
+      }
     }
   };
 
@@ -131,50 +226,98 @@ export default function DossierMedical() {
     }
   };
 
-  const confirmPayment = () => {
-    if (currentPatient) {
-      setPatients(patients.map(patient => 
-        patient.id === currentPatient.id ? { 
-          ...patient, 
-          paid: true
-        } : patient
-      ));
-      
-      // Fermer tous les modals
-      setShowCashModal(false);
-      setShowCardModal(false);
-      setShowMobileModal(false);
-      setCurrentPatient(null);
-      
-      // Réinitialiser les champs
-      setCashAmount('');
-      setCardNumber('');
-      setCardExpiry('');
-      setCardCVC('');
-      setMobileNumber('');
-      setMobileCode('');
+  const confirmPayment = async () => {
+    if (!currentPatient) return;
+
+    setIsProcessingPayment(true);
+    try {
+      const paymentData: PaymentRequest = {
+        consultation_id: currentPatient.id,
+        montant: cashAmount || String(currentPatient.amount), // Utiliser le montant saisi
+        date_paiement: new Date().toISOString().split('T')[0],
+        type: paymentMethod === 'mobile' ? 'mobilemoney' : 
+              paymentMethod === 'cash' ? 'espece' : 'prisencharge'
+      };
+
+      // Ajouter les détails spécifiques selon le mode de paiement
+      if (paymentMethod === 'mobile' && mobileNumber) {
+        paymentData.numero_mobile = mobileNumber;
+      } else if (paymentMethod === 'prisencharge') {
+        paymentData.numero_dossier = numeroDossier;
+        paymentData.organisme = organisme;
+      }
+
+      console.log('Sending payment request:', paymentData);
+
+      try {
+        const response = await consultService.makePayment(paymentData);
+        console.log('Payment successful:', response);
+
+        // Mise à jour immédiate du statut et du montant restant
+        setConsultations(prevConsultations => 
+          prevConsultations.map(consultation => {
+            if (consultation.id === currentPatient.id) {
+              return {
+                ...consultation,
+                statuspaiement: response["Reste à payer"] <= 0 ? 'Payé' : 'En cours',
+                payementrestant: response["Reste à payer"],
+                total: consultation.total // Garder le montant total original
+              };
+            }
+            return consultation;
+          })
+        );
+
+        // Message de succès
+        if (response["Reste à payer"] > 0) {
+          toast.info(`Paiement partiel effectué. Reste à payer: ${response["Reste à payer"]} Ar`);
+        } else {
+          toast.success('Paiement effectué avec succès');
+        }
+
+        // Rafraîchir les données
+        await refreshConsultations();
+        resetPaymentForms();
+
+      } catch (error: any) {
+        console.error('Payment failed:', error);
+        toast.error(error.message || 'Erreur lors du paiement');
+      }
+
+    } catch (error: any) {
+      console.error('Payment error:', error);
+      toast.error('Erreur lors du paiement. Veuillez réessayer.');
+    } finally {
+      setIsProcessingPayment(false);
     }
   };
 
-  const filteredPatients = patients
-    .filter(patient => {
-      if (filterStatus === 'paid' && !patient.paid) return false;
-      if (filterStatus === 'unpaid' && patient.paid) return false;
-      
-      if (selectedSeance && patient.seance !== selectedSeance) return false;
-      
-      return patient.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-             patient.seance.toLowerCase().includes(searchTerm.toLowerCase());
-    });
+  // Ajouter cette fonction pour rafraîchir les consultations
+  const refreshConsultations = async () => {
+    try {
+      const data = await consultService.getConsultations();
+      setConsultations(data.consultations);
+    } catch (error) {
+      console.error('Failed to refresh consultations:', error);
+    }
+  };
 
-  // Pagination logic
-  const indexOfLastItem = currentPage * itemsPerPage;
-  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentItems = filteredPatients.slice(indexOfFirstItem, indexOfLastItem);
-  const totalPages = Math.ceil(filteredPatients.length / itemsPerPage);
-
-  // Function to change page
-  const paginate = (pageNumber: number) => setCurrentPage(pageNumber);
+  // Ajouter cette fonction pour réinitialiser les formulaires
+  const resetPaymentForms = () => {
+    setShowCashModal(false);
+    setShowCardModal(false);
+    setShowMobileModal(false);
+    setShowPaymentModal(false);
+    setCurrentPatient(null);
+    setCashAmount('');
+    setCardNumber('');
+    setCardExpiry('');
+    setCardCVC('');
+    setMobileNumber('');
+    setMobileCode('');
+    setNumeroDossier('');
+    setOrganisme('');
+  };
 
   useEffect(() => {
     setTimeout(() => {
@@ -240,7 +383,7 @@ export default function DossierMedical() {
                   onChange={(e) => setSelectedSeance(e.target.value)}
                 >
                   <option value="">Toutes les séances</option>
-                  {seances.map(seance => (
+                  {allTreatments.map(seance => (
                     <option key={seance} value={seance}>{seance}</option>
                   ))}
                 </select>
@@ -262,42 +405,73 @@ export default function DossierMedical() {
               </thead>
               <tbody className="text-gray-600 text-sm">
                 {currentItems.length > 0 ? (
-                  currentItems.map((patient) => (
-                    <tr key={patient.id} className="border-b border-gray-200 hover:bg-gray-50">
-                      <td className="py-3 px-6 text-left">{patient.name}</td>
-                      <td className="py-3 px-6 text-left">{patient.seance}</td>
-                      <td className="py-3 px-6 text-right">{patient.amount.toLocaleString()} Ar</td>
+                  currentItems.map((consultation) => (
+                    <tr key={consultation.id} className="border-b border-gray-200 hover:bg-gray-50">
+                      <td className="py-3 px-6 text-left">
+                        {consultation.patient.name} {consultation.patient.prenom}
+                      </td>
+                      <td className="py-3 px-6 text-left">
+                        {consultation.traitements.map(t => t.nom).join(', ')}
+                      </td>
+                      <td className="py-3 px-6 text-right">
+                        <div className="flex flex-col items-end">
+                          <span>{Number(consultation.total).toLocaleString()} Ar</span>
+                          {consultation.payementrestant > 0 && (
+                            <span className="text-sm text-red-600">
+                              Reste: {Number(consultation.payementrestant).toLocaleString()} Ar
+                            </span>
+                          )}
+                        </div>
+                      </td>
                       <td className="py-3 px-6 text-center">
-                        <span className={`py-1 px-3 rounded-full text-xs ${patient.paid ? 'bg-green-200 text-green-700' : 'bg-blue-200 text-blue-700'}`}>
-                          {patient.paid ? 'Terminé' : 'En cours'}
+                        <span className={`py-1 px-3 rounded-full text-xs ${
+                          consultation.statuspaiement === 'Payé' 
+                            ? 'bg-green-200 text-green-700' 
+                            : consultation.payementrestant > 0
+                              ? 'bg-yellow-200 text-yellow-700'
+                              : 'bg-red-200 text-red-700'
+                        }`}>
+                          {consultation.statuspaiement}
+                          {consultation.payementrestant > 0 && ` (${consultation.payementrestant} Ar)`}
                         </span>
                       </td>
                       <td className="py-3 px-6 text-center">
                         <div className="flex items-center justify-center">
-                          <span className={`font-medium ${patient.completedSeances === patient.seanceCount ? 'text-green-600' : 'text-blue-600'}`}>
-                            {patient.completedSeances}/{patient.seanceCount}
+                          <span className={`font-medium ${
+                            consultation.statusseance === 'Complet'
+                              ? 'text-green-600'
+                              : consultation.seancerestant === null
+                                ? 'text-red-600'
+                                : 'text-blue-600'
+                          }`}>
+                            {consultation.statusseance === 'Complet' 
+                              ? 'Complet'
+                              : consultation.seancerestant !== null 
+                                ? `${consultation.nb_seances - consultation.seancerestant}/${consultation.nb_seances}`
+                                : 'Non commencé'
+                            }
                           </span>
                         </div>
                       </td>
                       <td className="py-3 px-6 text-center">
                         <div className="flex justify-center items-center space-x-2">
-                          {patient.completedSeances < patient.seanceCount && (
+                          {consultation.statusseance !== 'Complet' && consultation.seancerestant !== null && (
                             <button 
-                              onClick={() => handleSeanceValidation(patient.id)}
+                              onClick={() => handleSeanceValidation(consultation.id)}
                               className="bg-blue-500 hover:bg-blue-600 text-white py-1 px-3 rounded text-xs transition duration-300 cursor-pointer"
                             >
                               Valider séance
                             </button>
                           )}
-                          {!patient.paid && (
+                          {consultation.statuspaiement !== 'Payé' && consultation.payementrestant > 0 && (
                             <button
-                            onClick={() => handlePaymentValidation(patient.id)}
+                            onClick={() => handlePaymentValidation(consultation.id)}
                             className="bg-green-500 hover:bg-green-600 text-white py-1 px-3 rounded text-xs transition duration-300 cursor-pointer"
                           >
                             Régler paiement
                           </button>
                         )}
-                        {patient.completedSeances === patient.seanceCount && patient.paid && (
+                        {consultation.statusseance === 'Complet' && consultation.statuspaiement === 'Payé' && (
                           <span className="text-green-600 text-xs">Traitement terminé</span>
                         )}
                       </div>
@@ -316,7 +490,7 @@ export default function DossierMedical() {
         </div>
         
         {/* Pagination component */}
-        {filteredPatients.length > itemsPerPage && (
+        {filteredConsultations.length > itemsPerPage && (
           <div className="flex flex-col sm:flex-row justify-between items-center mt-6 gap-4">
             <div className="flex items-center text-sm text-gray-500">
               <span>Afficher</span>
@@ -385,17 +559,17 @@ export default function DossierMedical() {
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <span className="text-gray-600 text-xs">Traitements en cours: </span>
-                <span className="text-gray-500 font-bold">{filteredPatients.filter(p => !p.paid).length}</span>
+                <span className="text-gray-500 font-bold">{filteredConsultations.filter(c => c.statuspaiement !== 'Payé').length}</span>
               </div>
               <div>
                 <span className="text-gray-600 text-xs">Traitements terminés: </span>
-                <span className="text-gray-500 font-bold">{filteredPatients.filter(p => p.paid).length}</span>
+                <span className="text-gray-500 font-bold">{filteredConsultations.filter(c => c.statuspaiement === 'Payé').length}</span>
               </div>
               <div className="col-span-2">
                 <span className="text-gray-600 text-xs">Séances effectuées: </span>
                 <span className="text-gray-500 font-bold">
-                  {filteredPatients.reduce((total, p) => total + p.completedSeances, 0)} / 
-                  {filteredPatients.reduce((total, p) => total + p.seanceCount, 0)}
+                  {filteredConsultations.reduce((total, c) => total + c.traitements.length, 0)} / 
+                  {filteredConsultations.reduce((total, c) => total + c.seanceCount, 0)}
                 </span>
               </div>
             </div>
@@ -413,7 +587,7 @@ export default function DossierMedical() {
             <p><span className="font-medium">Traitement:</span> {currentPatient.seance}</p>
               <p><span className="font-medium">Montant:</span> {currentPatient.amount.toLocaleString()} Ar</p>
               <div className="mt-3 p-3 bg-blue-50 rounded-lg">
-                <p className="font-medium text-blue-700">Progression des séances:</p>
+                <p className="font-medium text-blue-700">Progression des séances</p>
                 <div className="flex items-center mt-2">
                   <div className="w-full bg-gray-200 rounded-full h-2.5">
                     <div 
@@ -425,12 +599,20 @@ export default function DossierMedical() {
                     {currentPatient.completedSeances}/{currentPatient.seanceCount}
                   </span>
                 </div>
-                <p className="mt-2 text-sm text-blue-600">
-                  {currentPatient.completedSeances + 1 >= currentPatient.seanceCount 
-                    ? "Cette séance terminera le traitement." 
-                    : `Il restera ${currentPatient.seanceCount - currentPatient.completedSeances - 1} séance(s) après celle-ci.`
-                  }
-                </p>
+                <div className="mt-2 space-y-1 text-sm">
+                  <p className="text-blue-600">
+                    <span className="font-medium">Séances effectuées:</span> {currentPatient.completedSeances}
+                  </p>
+                  <p className="text-blue-600">
+                    <span className="font-medium">Séances restantes:</span> {currentPatient.seanceCount - currentPatient.completedSeances}
+                  </p>
+                  <p className="text-blue-600 mt-2">
+                    {currentPatient.completedSeances + 1 >= currentPatient.seanceCount 
+                      ? "Cette séance terminera le traitement." 
+                      : `Il restera ${currentPatient.seanceCount - currentPatient.completedSeances - 1} séance(s) après celle-ci.`
+                    }
+                  </p>
+                </div>
               </div>
             </div>
             
@@ -438,26 +620,42 @@ export default function DossierMedical() {
               <label className="flex items-center space-x-2">
                 <input 
                   type="checkbox" 
-                  className="form-checkbox h-5 w-5 text-blue-600 rounded focus:ring-blue-500"
-                  checked={true}
-                  readOnly
+                  className="form-checkbox h-5 w-5 text-blue-600 rounded focus:ring-blue-500 cursor-pointer"
+                  checked={validateAllSeances}
+                  onChange={(e) => setValidateAllSeances(e.target.checked)}
                 />
-                <span>Confirmer que la séance a été effectuée</span>
+                <span>Valider toutes les séances restantes</span>
               </label>
             </div>
             
             <div className="flex justify-end space-x-3">
               <button 
-                onClick={() => setShowSeanceModal(false)}
-                className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 cursor-pointer"
+                onClick={() => {
+                  setShowSeanceModal(false);
+                  setValidateAllSeances(false);
+                }}
+                disabled={isValidating}
+                className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Annuler
               </button>
               <button 
                 onClick={confirmSeance}
-                className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 cursor-pointer"
+                disabled={isValidating}
+                className="relative px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
               >
-                Valider la séance
+                {isValidating ? (
+                  <>
+                    <motion.div 
+                      className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full"
+                      animate={{ rotate: 360 }}
+                      transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                    />
+                    <span>Validation en cours...</span>
+                  </>
+                ) : (
+                  <span>{validateAllSeances ? 'Valider toutes les séances' : 'Valider la séance'}</span>
+                )}
               </button>
             </div>
           </div>
@@ -515,23 +713,23 @@ export default function DossierMedical() {
                   <input 
                     type="radio" 
                     name="paymentMethod" 
-                    value="card"
-                    className="form-radio h-4 w-4 text-blue-600 focus:ring-blue-500"
-                    checked={paymentMethod === 'card'}
-                    onChange={() => setPaymentMethod('card')}
-                  />
-                  <span>Carte bancaire</span>
-                </label>
-                <label className="flex items-center space-x-2">
-                  <input 
-                    type="radio" 
-                    name="paymentMethod" 
                     value="mobile"
                     className="form-radio h-4 w-4 text-blue-600 focus:ring-blue-500"
                     checked={paymentMethod === 'mobile'}
                     onChange={() => setPaymentMethod('mobile')}
                   />
                   <span>Mobile Money</span>
+                </label>
+                <label className="flex items-center space-x-2">
+                  <input 
+                    type="radio" 
+                    name="paymentMethod" 
+                    value="prisencharge"
+                    className="form-radio h-4 w-4 text-blue-600 focus:ring-blue-500"
+                    checked={paymentMethod === 'prisencharge'}
+                    onChange={() => setPaymentMethod('prisencharge')}
+                  />
+                  <span>Prise en charge</span>
                 </label>
               </div>
             </div>
@@ -562,7 +760,13 @@ export default function DossierMedical() {
             
             <div className="mb-4">
               <p><span className="font-medium">Patient:</span> {currentPatient.name}</p>
-              <p><span className="font-medium">Montant à payer:</span> {currentPatient.amount.toLocaleString()} Ar</p>
+              <p><span className="font-medium">Montant total:</span> {currentPatient.amount.toLocaleString()} Ar</p>
+              {cashAmount && (
+                <div className="mt-2 space-y-1">
+                  <p><span className="font-medium">Montant saisi:</span> {parseFloat(cashAmount).toLocaleString()} Ar</p>
+                  <p><span className="font-medium">Reste à payer:</span> <span className="text-blue-600">{Math.max(0, currentPatient.amount - parseFloat(cashAmount)).toLocaleString()} Ar</span></p>
+                </div>
+              )}
             </div>
             
             <div className="mb-4">
@@ -577,13 +781,6 @@ export default function DossierMedical() {
                 placeholder="Entrez le montant reçu"
               />
             </div>
-            
-            {parseFloat(cashAmount) > 0 && parseFloat(cashAmount) < currentPatient.amount && (
-              <div className="mb-4 p-3 bg-red-50 rounded-lg text-red-600">
-                <p className="font-medium">Attention: Montant insuffisant</p>
-                <p className="text-sm">Le montant reçu est inférieur au montant dû.</p>
-              </div>
-            )}
             
             {parseFloat(cashAmount) > currentPatient.amount && (
               <div className="mb-4 p-3 bg-blue-50 rounded-lg">
@@ -606,14 +803,25 @@ export default function DossierMedical() {
                 </button>
                 <button 
                   onClick={confirmPayment}
-                  disabled={!cashAmount || parseFloat(cashAmount) < currentPatient.amount}
-                  className={`px-4 py-2 rounded-md ${
-                    !cashAmount || parseFloat(cashAmount) < currentPatient.amount
+                  disabled={!cashAmount}
+                  className={`px-4 py-2 rounded-md flex items-center justify-center ${
+                    isProcessingPayment || !cashAmount
                       ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                       : 'bg-green-500 text-white hover:bg-green-600 cursor-pointer'
                   }`}
                 >
-                  Confirmer le paiement
+                  {isProcessingPayment ? (
+                    <>
+                      <motion.div 
+                        className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full mr-2"
+                        animate={{ rotate: 360 }}
+                        transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                      />
+                      <span>Traitement en cours...</span>
+                    </>
+                  ) : (
+                    'Confirmer le paiement'
+                  )}
                 </button>
               </div>
             </div>
