@@ -51,6 +51,7 @@ export default function DossierMedical() {
   const [totalPrice, setTotalPrice] = useState(0);
   const [paymentType, setPaymentType] = useState('totalite');
   const [avance, setAvance] = useState<string>('');
+  const [modePayment, setModePayment] = useState<'espece' | 'mobilemoney' | 'prisencharge'>('espece');
   const [selectedMedicaments, setSelectedMedicaments] = useState<number[]>([]);
   const [antecedents, setAntecedents] = useState<{id: number, titre: string, description?: string}[]>([]);
   const [nextAntecedentId, setNextAntecedentId] = useState(1);
@@ -76,6 +77,9 @@ export default function DossierMedical() {
   
   const [isLoadingTreatments, setIsLoadingTreatments] = useState(true);
   const [isLoadingProducts, setIsLoadingProducts] = useState(true);
+  const [mobileMoneyNumber, setMobileMoneyNumber] = useState('');
+  const [numeroDossier, setNumeroDossier] = useState('');
+  const [organisme, setOrganisme] = useState('');
 
   useEffect(() => {
     const fetchData = async () => {
@@ -358,7 +362,11 @@ useEffect(() => {
         produits: selectedMedicaments,
         paiements: [{
           montant: paymentType === 'totalite' ? totalPrice : parseFloat(avance) || 0,
-          date: dateConsultation
+          date: dateConsultation,
+          type: modePayment,
+          numero_mobile: modePayment === 'mobilemoney' ? mobileMoneyNumber : null,
+          numero_dossier: modePayment === 'prisencharge' ? numeroDossier : null,
+          organisme: modePayment === 'prisencharge' ? organisme : null
         }]
       };
 
@@ -381,6 +389,9 @@ useEffect(() => {
         setTotalPrice(0);
         setPaymentType('totalite');
         setAvance('');
+        setMobileMoneyNumber('');
+        setNumeroDossier('');
+        setOrganisme('');
 
         // Refresh after a short delay
         setTimeout(() => {
@@ -662,6 +673,103 @@ useEffect(() => {
             </div>
           </div>
           
+          {/* Mode de paiement selection UI */}
+          <div className="mb-6">
+            <label className="block text-gray-700 mb-2">Mode de paiement</label>
+            <div className="grid grid-cols-3 gap-4 mb-4">
+              <button
+                type="button"
+                onClick={() => setModePayment('espece')}
+                className={`p-3 border rounded-md cursor-pointer ${
+                  modePayment === 'espece' 
+                    ? 'bg-blue-600 text-white' 
+                    : 'bg-white text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                Espèce
+              </button>
+              <button
+                type="button"
+                onClick={() => setModePayment('mobilemoney')}
+                className={`p-3 border rounded-md cursor-pointer ${
+                  modePayment === 'mobilemoney' 
+                    ? 'bg-blue-600 text-white' 
+                    : 'bg-white text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                Mobile Money
+              </button>
+              <button
+                type="button"
+                onClick={() => setModePayment('prisencharge')}
+                className={`p-3 border rounded-md cursor-pointer ${
+                  modePayment === 'prisencharge' 
+                    ? 'bg-blue-600 text-white' 
+                    : 'bg-white text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                Prise en charge
+              </button>
+            </div>
+            
+            {modePayment === 'mobilemoney' && (
+              <div className="mt-4 p-4 bg-blue-50 rounded-md">
+                <label className="block text-gray-700 mb-2">
+                  Numéro Mobile Money
+                  <span className="text-red-500 ml-1">*</span>
+                </label>
+                <input
+                  type="tel"
+                  className="w-full p-2 border border-gray-300 rounded-md text-gray-700"
+                  value={mobileMoneyNumber}
+                  onChange={(e) => setMobileMoneyNumber(e.target.value)}
+                  placeholder="Ex: 034XXXXXXX"
+                  required
+                />
+                <p className="mt-1 text-sm text-gray-500">
+                  Veuillez entrer le numéro qui sera utilisé pour le paiement Mobile Money
+                </p>
+              </div>
+            )}
+            {modePayment === 'prisencharge' && (
+              <div className="mt-4 p-4 bg-blue-50 rounded-md space-y-4">
+                <div>
+                  <label className="block text-gray-700 mb-2">
+                    Numéro de dossier
+                    <span className="text-red-500 ml-1">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    className="w-full p-2 border border-gray-300 rounded-md text-gray-700"
+                    value={numeroDossier}
+                    onChange={(e) => setNumeroDossier(e.target.value)}
+                    placeholder="Ex: PEC-2023-001"
+                    required
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-gray-700 mb-2">
+                    Organisme de prise en charge
+                    <span className="text-red-500 ml-1">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    className="w-full p-2 border border-gray-300 rounded-md text-gray-700"
+                    value={organisme}
+                    onChange={(e) => setOrganisme(e.target.value)}
+                    placeholder="Ex: OSTIE, BSA, ..."
+                    required
+                  />
+                </div>
+                
+                <p className="text-sm text-gray-500">
+                  Veuillez remplir les informations relatives à la prise en charge
+                </p>
+              </div>
+            )}
+          </div>
+
           <button 
             className="cursor-pointer w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md transition duration-200"
             onClick={handleSubmit}

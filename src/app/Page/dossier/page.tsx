@@ -119,7 +119,7 @@ const MedicalFiles = () => {
               <Folder className="w-12 h-12 text-gray-500" />
               <h2 className="text-sm font-semibold text-gray-700 mt-2 text-center">{patient.name}</h2>
               <p className="text-xs text-gray-500">Matricule: {patient.id}</p>
-              <Link href={`/Page/dossier/${patient.id}`}>
+              <Link href={`/Page/dossier/${patient.id}`}>)
                 <button className="cursor-pointer mt-3 bg-blue-500 text-white px-4 py-2 text-sm rounded-md hover:bg-blue-600 transition">
                   Ouvrir le dossier
                 </button>

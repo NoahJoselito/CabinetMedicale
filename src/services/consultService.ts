@@ -36,6 +36,10 @@ export interface Product {
 export interface Payment {
   montant: number;
   date: string;
+  type: 'espece' | 'mobilemoney' | 'prisencharge';
+  numero_mobile?: string | null;
+  numero_dossier?: string | null;
+  organisme?: string | null;
 }
 
 export interface Consultation {
@@ -65,6 +69,10 @@ export interface Consultation {
   paiements: {
     montant: number;
     date: string;
+    type: 'espece' | 'mobilemoney' | 'prisencharge';
+    numero_mobile?: string | null;
+    numero_dossier?: string | null;
+    organisme?: string | null;
   }[];
 }
 
@@ -192,7 +200,9 @@ export const consultService = {
         produits: consultationData.produits,
         paiements: consultationData.paiements.map(p => ({
           montant: Number(p.montant).toFixed(2),
-          date: p.date
+          date: p.date,
+          type: p.type,
+          numero_mobile: p.type === 'mobilemoney' ? p.numero_mobile : null
         }))
       };
 
