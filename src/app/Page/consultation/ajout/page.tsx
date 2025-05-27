@@ -51,7 +51,7 @@ export default function DossierMedical() {
   const [totalPrice, setTotalPrice] = useState(0);
   const [paymentType, setPaymentType] = useState('totalite');
   const [avance, setAvance] = useState<string>('');
-  const [modePayment, setModePayment] = useState<'espece' | 'mobilemoney' | 'prisencharge' | 'differe'>('espece');
+  const [modePayment, setModePayment] = useState<'espece' | 'mobilemoney' | 'prisencharge'>('espece');
   const [selectedMedicaments, setSelectedMedicaments] = useState<number[]>([]);
   const [antecedents, setAntecedents] = useState<{id: number, titre: string, description?: string}[]>([]);
   const [nextAntecedentId, setNextAntecedentId] = useState(1);
@@ -80,6 +80,7 @@ export default function DossierMedical() {
   const [mobileMoneyNumber, setMobileMoneyNumber] = useState('');
   const [numeroDossier, setNumeroDossier] = useState('');
   const [organisme, setOrganisme] = useState('');
+  const [paiementInitial, setPaiementInitial] = useState<string>('');
 
   useEffect(() => {
     const fetchData = async () => {
@@ -360,14 +361,19 @@ useEffect(() => {
         })),
         traitements: selectedTreatments,
         produits: selectedMedicaments,
-        paiements: modePayment === 'differe' ? [] : [{
+        paiements: [{
           montant: paymentType === 'totalite' ? totalPrice : parseFloat(avance) || 0,
           date: dateConsultation,
           type: modePayment,
           numero_mobile: modePayment === 'mobilemoney' ? mobileMoneyNumber : null,
           numero_dossier: modePayment === 'prisencharge' ? numeroDossier : null,
           organisme: modePayment === 'prisencharge' ? organisme : null
-        }]
+        }],
+        paiement_initial: modePayment === 'espece' ? {
+          montant: parseFloat(paiementInitial),
+          type: 'espece' as const,
+          date: dateConsultation
+        } : undefined,
       };
 
       const response = await consultService.createConsultation(consultationData);
@@ -676,7 +682,7 @@ useEffect(() => {
           {/* Mode de paiement selection UI */}
           <div className="mb-6">
             <label className="block text-gray-700 mb-2">Mode de paiement</label>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
               <button
                 type="button"
                 onClick={() => setModePayment('espece')}
@@ -709,17 +715,6 @@ useEffect(() => {
                 }`}
               >
                 Prise en charge
-              </button>
-              <button
-                type="button"
-                onClick={() => setModePayment('differe')}
-                className={`p-3 border rounded-md cursor-pointer ${
-                  modePayment === 'differe' 
-                    ? 'bg-blue-600 text-white' 
-                    : 'bg-white text-gray-700 hover:bg-gray-50'
-                }`}
-              >
-                Paiement différé
               </button>
             </div>
             
@@ -777,6 +772,22 @@ useEffect(() => {
                 <p className="text-sm text-gray-500">
                   Veuillez remplir les informations relatives à la prise en charge
                 </p>
+              </div>
+            )}
+            {modePayment === 'espece' && (
+              <div className="mt-4 p-4 bg-blue-50 rounded-md">
+                <label className="block text-gray-700 mb-2">
+                  Montant en espèces
+                  <span className="text-red-500 ml-1">*</span>
+                </label>
+                <input
+                  type="number"
+                  className="w-full p-2 border border-gray-300 rounded-md text-gray-700"
+                  value={paiementInitial}
+                  onChange={(e) => setPaiementInitial(e.target.value)}
+                  placeholder="Entrez le montant"
+                  required
+                />
               </div>
             )}
           </div>

@@ -8,7 +8,12 @@ export const ENDPOINTS = {
   },
   DOCTORS: '/doctors',
   SERVICES: '/services',
-  PATIENTS: '/patients',
+  PATIENTS: {
+    LIST: '/patients',
+    CREATE: '/register', // Changed back to /register for creating new patients
+    UPDATE: (id: number) => `/patients/${id}`,
+    DELETE: (id: number) => `/patients/${id}`
+  },
   TRAITEMENTS: '/traitements',
   STOCK: {
     LIST: '/stocks', // Updated endpoint

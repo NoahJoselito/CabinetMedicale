@@ -1,16 +1,8 @@
 "use client"
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-
-// Services disponibles (à déplacer vers une configuration ou API si nécessaire)
-const AVAILABLE_SERVICES = [
-  { id: 1, name: "Consultation générale" },
-  { id: 2, name: "Pédiatrie" },
-  { id: 3, name: "Cardiologie" },
-  { id: 4, name: "Dermatologie" },
-  { id: 5, name: "Gynécologie" }
-]
+import { RDVService, Service } from '@/services/RDVService'
 
 interface AddAppointmentFormProps {
   onClose: () => void
@@ -19,7 +11,8 @@ interface AddAppointmentFormProps {
 export default function AddAppointmentForm({ onClose }: AddAppointmentFormProps) {
   // Obtenir la date d'aujourd'hui au format YYYY-MM-DD
   const today = new Date().toISOString().split('T')[0]
-
+  const [services, setServices] = useState<Service[]>([])
+  const [isLoading, setIsLoading] = useState(true)
   const [formData, setFormData] = useState({
     patientName: '',
     phone: '',
@@ -28,6 +21,20 @@ export default function AddAppointmentForm({ onClose }: AddAppointmentFormProps)
     reason: '',
     serviceId: '' // Nouveau champ
   })
+
+  useEffect(() => {
+    const loadServices = async () => {
+      try {
+        const data = await RDVService.getAllServices()
+        setServices(data)
+      } catch (error) {
+        console.error('Failed to load services:', error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    loadServices()
+  }, [])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -78,13 +85,16 @@ export default function AddAppointmentForm({ onClose }: AddAppointmentFormProps)
           <select
             value={formData.serviceId}
             onChange={(e) => setFormData({...formData, serviceId: e.target.value})}
-            className="w-full p-2 border rounded-lg bg-white"
+            className={`w-full p-2 border rounded-lg bg-white cursor-pointer ${isLoading ? 'opacity-50' : ''}`}
             required
+            disabled={isLoading}
           >
-            <option value="">Sélectionnez un service</option>
-            {AVAILABLE_SERVICES.map(service => (
+            <option value="">
+              {isLoading ? 'Chargement des services...' : 'Sélectionnez un service'}
+            </option>
+            {services.map(service => (
               <option key={service.id} value={service.id}>
-                {service.name}
+                {service.icone} {service.nom}
               </option>
             ))}
           </select>

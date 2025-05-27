@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { FaTrash, FaEdit, FaPlus, FaTimes } from 'react-icons/fa';
 import { BiSearch } from 'react-icons/bi';
 import { motion } from 'framer-motion';
@@ -49,12 +49,26 @@ const MyComponent = () => {
     name: string;
     prenom: string;
     email: string;
-    password: string;
-    role_id: number;
+    email_verified_at: string | null;
     numeroTelephone: string;
     date_naissance: string;
     adresse: string;
-    antecedents_medicaux: string;
+    specialité: string | null;
+    emploi: string | null;
+    role_id: number;
+    organisme: string | null;
+    numerodossierprisenchage: string | null;
+    antecedents: Array<{
+      id: number;
+      user_id: number;
+      titre: string;
+      description: string | null;
+      created_at: string;
+      updated_at: string;
+    }>;
+    provider?: string | null;
+    provider_id?: string | null;
+    last_login?: string | null;
   }
 
   const initialPatientData = {
@@ -67,10 +81,26 @@ const MyComponent = () => {
     numeroTelephone: '',
     date_naissance: '',
     adresse: '',
-    antecedents_medicaux: '',
+    emploi: '',
+    organisme: '',
+    numerodossierprisenchage: '',
+    specialité: '',
+    provider: null,
+    provider_id: null,
+    last_login: null,
+    email_verified_at: null,
+    antecedents: [] as Array<{
+      id: number;
+      user_id: number;
+      titre: string;
+      description: string | null;
+      created_at: string;
+      updated_at: string;
+    }>
   };
 
-  const [patients, setPatients] = useState<Patient[]>([]);
+
+  const [allPatients, setAllPatients] = useState<Patient[]>([]); // Tous les patients
   const [searchTerm, setSearchTerm] = useState('');
   const [isFormVisible, setIsFormVisible] = useState(false);
   const [editingPatient, setEditingPatient] = useState<Patient | null>(null);
@@ -85,59 +115,118 @@ const MyComponent = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(5);
 
-  // Supprimer ces états de pagination
-  const fetchPatients = useCallback(async () => {
+
+  const [antecedents, setAntecedents] = useState<Array<{ titre: string; description: string | null }>>([]);
+
+
+  // Fonction pour charger tous les patients une seule fois
+  const fetchAllPatients = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await patientService.getPatients();
-      setPatients(response.data.map(patient => ({
-        id: patient.id || 0,
-        name: patient.name || '',
-        prenom: patient.prenom || '',
-        email: patient.email || '',
-        password: patient.password || '',
-        role_id: patient.role_id || 4,
-        numeroTelephone: patient.numeroTelephone || '',
-        date_naissance: patient.date_naissance || '',
-        adresse: patient.adresse || '',
-        antecedents_medicaux: patient.antecedents_medicaux || ''
-      })));
+
+
+      const response = await patientService.getPatients(1); // Charger la première page
+      
+      // Si il y a plusieurs pages, charger toutes les pages
+      let allPatientsData = [...response.data];
+      
+      if (response.last_page > 1) {
+        const promises = [];
+        for (let page = 2; page <= response.last_page; page++) {
+          promises.push(patientService.getPatients(page));
+        }
+        
+        const additionalPages = await Promise.all(promises);
+        additionalPages.forEach(pageResponse => {
+          allPatientsData = [...allPatientsData, ...pageResponse.data];
+        });
+      }
+
+      // Normaliser les données
+      const normalizedPatients = allPatientsData.map(patient => ({
+        id: patient.id ?? 0,
+        name: patient.name ?? '',
+        prenom: patient.prenom ?? '',
+        email: patient.email ?? '',
+        email_verified_at: patient.email_verified_at ?? null,
+        numeroTelephone: patient.numeroTelephone ?? '',
+        date_naissance: patient.date_naissance ?? '',
+        adresse: patient.adresse ?? '',
+        specialité: patient.specialité ?? null,
+        emploi: patient.emploi ?? null,
+        role_id: patient.role_id ?? 4,
+        organisme: patient.organisme ?? null,
+        numerodossierprisenchage: patient.numerodossierprisenchage ?? null,
+        antecedents: (patient.antecedents ?? []).map(ant => ({
+          id: ant.id ?? 0,
+          user_id: ant.user_id ?? 0,
+          titre: ant.titre ?? '',
+          description: ant.description ?? null,
+          created_at: ant.created_at ?? '',
+          updated_at: ant.updated_at ?? ''
+        }))
+      }));
+
+      setAllPatients(normalizedPatients);
     } catch (error) {
+      console.error('Erreur lors du chargement des patients:', error);
       toast.error('Erreur lors du chargement des patients');
     } finally {
       setLoading(false);
     }
+
   }, []);
 
   useEffect(() => {
-    fetchPatients();
-  }, [fetchPatients]);
+    fetchAllPatients();
+  }, [fetchAllPatients]);
 
-  // Modifier le calcul des patients filtrés
-  const handleSearch = useCallback((value: string) => {
-    setSearchTerm(value);
-  }, []);
+  // Filtrer les patients selon le terme de recherche
+  const filteredPatients = useMemo(() => {
+    return allPatients.filter((patient: Patient) =>
+      (patient?.name ?? '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (patient?.prenom ?? '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (patient?.numeroTelephone ?? '').includes(searchTerm) ||
+      (patient?.email ?? '').toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [allPatients, searchTerm]);
+  // Calculer la pagination côté front
+  const paginationData = useMemo(() => {
+    const totalItems = filteredPatients.length;
+    const totalPages = Math.ceil(totalItems / itemsPerPage);
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
 
-  const currentPatients = patients.filter((patient: Patient) =>
-    (patient?.name ?? '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (patient?.prenom ?? '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (patient?.numeroTelephone ?? '').includes(searchTerm) ||
-    (patient?.email ?? '').toLowerCase().includes(searchTerm.toLowerCase())
-  );
 
-  // Calcul pour la pagination
-  const indexOfLastItem = currentPage * itemsPerPage;
-  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const paginatedPatients = currentPatients.slice(indexOfFirstItem, indexOfLastItem);
-  const totalPages = Math.ceil(currentPatients.length / itemsPerPage);
+    const currentItems = filteredPatients.slice(startIndex, endIndex);
 
-  const handlePageChange = (pageNumber: number) => {
-    setCurrentPage(pageNumber);
+    return {
+      currentItems,
+      totalItems,
+      totalPages,
+      startIndex,
+      endIndex
+    };
+  }, [filteredPatients, currentPage, itemsPerPage]);
+
+  // Fonction pour changer de page
+  const handlePageChange = (page: number) => {
+    if (page >= 1 && page <= paginationData.totalPages) {
+      setCurrentPage(page);
+    }
   };
 
+  // Fonction pour changer le nombre d'éléments par page
   const handleItemsPerPageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setItemsPerPage(Number(e.target.value));
-    setCurrentPage(1); // Reset to first page when changing items per page
+    const newItemsPerPage = Number(e.target.value);
+    setItemsPerPage(newItemsPerPage);
+    setCurrentPage(1); // Retourner à la première page
+  };
+
+  // Fonction de recherche
+  const handleSearch = (value: string) => {
+    setSearchTerm(value);
+    setCurrentPage(1); // Retourner à la première page lors de la recherche
   };
 
   const resetForm = () => {
@@ -145,6 +234,7 @@ const MyComponent = () => {
     setEditingPatient(null);
     setShowPassword(false);
     setShowConfirmPassword(false);
+    setAntecedents([]);
   };
 
   const closeForm = () => {
@@ -152,7 +242,6 @@ const MyComponent = () => {
     resetForm();
   };
 
-  // Ajouter cette fonction pour générer un mot de passe aléatoire
   const generateRandomPassword = () => {
     const length = 12;
     const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*";
@@ -168,63 +257,158 @@ const MyComponent = () => {
     setIsSubmitting(true);
     
     try {
-      const randomPassword = generateRandomPassword();
+      const randomPassword = !editingPatient ? generateRandomPassword() : '';
       const patientPayload = {
         ...patientData,
-        role_id: 4 as const,
+        role_id: 4,
         password: !editingPatient ? randomPassword : undefined,
-        password_confirmation: !editingPatient ? randomPassword : undefined
+        password_confirmation: !editingPatient ? randomPassword : undefined,
+        antecedents: antecedents
       };
       
       if (editingPatient) {
-        await patientService.updatePatient(editingPatient.id, patientPayload);
-        toast.success('Patient modifié avec succès !');
+        try {
+          const response = await patientService.updatePatient(editingPatient.id, patientPayload);
+          if (response) {
+            toast.success('Patient modifié avec succès !', {
+              position: "top-right",
+              autoClose: 3000,
+              hideProgressBar: false,
+              closeOnClick: true,
+              pauseOnHover: true,
+              draggable: true,
+              theme: "light"
+            });
+            // Mettre à jour le patient dans la liste locale
+            setAllPatients(prevPatients => 
+              prevPatients.map(patient => 
+                patient.id === editingPatient.id 
+                  ? { ...patient, ...patientPayload, antecedents: antecedents.map((ant, index) => ({
+                      id: index + 1,
+                      user_id: editingPatient.id,
+                      titre: ant.titre,
+                      description: ant.description,
+                      created_at: new Date().toISOString(),
+                      updated_at: new Date().toISOString()
+                    })) }
+                  : patient
+              )
+            );
+            closeForm();
+          }
+        } catch (error: any) {
+          handleError(error);
+        }
       } else {
-        const response = await patientService.createPatient(patientPayload);
-        if (response) {
-          toast.success('Patient ajouté avec succès !');
-        } else {
-          throw new Error('Erreur lors de la création du patient');
+        try {
+          const response = await patientService.createPatient(patientPayload);
+          if (response) {
+            toast.success('Nouveau patient ajouté avec succès !', {
+              position: "top-right",
+              autoClose: 3000,
+              hideProgressBar: false,
+              closeOnClick: true,
+              pauseOnHover: true,
+              draggable: true,
+              theme: "light"
+            });           
+            // Ajouter le nouveau patient à la liste locale
+            const newPatient: Patient = {
+              id: Date.now(), // ID temporaire
+              ...patientPayload,
+              email_verified_at: null,
+              provider: null,
+              provider_id: null,
+              last_login: null,
+              antecedents: antecedents.map((ant, index) => ({
+                id: index + 1,
+                user_id: Date.now(),
+                titre: ant.titre,
+                description: ant.description,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+              }))
+            };
+            
+            setAllPatients(prevPatients => [newPatient, ...prevPatients]);
+            closeForm();
+          }
+        } catch (error: any) {
+          handleError(error);
         }
       }
-      
-      closeForm();
-      const response = await patientService.getPatients();
-      setPatients(response.data.map(patient => ({
-        id: patient.id || 0,
-        name: patient.name || '',
-        prenom: patient.prenom || '',
-        email: patient.email || '',
-        password: patient.password || '',
-        role_id: patient.role_id || 4,
-        numeroTelephone: patient.numeroTelephone || '',
-        date_naissance: patient.date_naissance || '',
-        adresse: patient.adresse || '',
-        antecedents_medicaux: patient.antecedents_medicaux || ''
-      })));
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Une erreur est survenue lors de l\'opération');
+      console.error('Erreur:', error);
+      toast.error('Une erreur est survenue lors de l\'opération', {
+        theme: "colored"
+      });
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  // Fonction utilitaire pour gérer les erreurs
+  const handleError = (error: any) => {
+    if (error.response?.status === 422) {
+      const errors = error.response.data.errors;
+      Object.entries(errors).forEach(([field, messages]) => {
+        if (Array.isArray(messages)) {
+          messages.forEach((message) => {
+
+            toast.error(`${field}: ${message}`, {
+              position: "top-right",
+              autoClose: 5000,
+              theme: "colored"
+            });
+          });
+        }
+      });
+    } else {
+      toast.error('Une erreur est survenue', {
+        theme: "colored"
+      });
+    }
+  };
+
   const handleEdit = (patient: Patient) => {
     setEditingPatient(patient);
-    setPatientData({
+    setPatientData(prevData => ({
+      ...prevData,
+      ...initialPatientData,
       name: patient.name || '',
       prenom: patient.prenom || '',
       email: patient.email || '',
-      password: '',  // Changed from patient.password
-      password_confirmation: '', // Changed from patient.password
+      password: '',
+      password_confirmation: '',
       role_id: patient.role_id || 4,
       numeroTelephone: patient.numeroTelephone || '',
       date_naissance: patient.date_naissance || '',
       adresse: patient.adresse || '',
-      antecedents_medicaux: patient.antecedents_medicaux || ''
-    });
+      emploi: patient.emploi || '',
+      organisme: patient.organisme || '',
+      numerodossierprisenchage: patient.numerodossierprisenchage || '',
+      specialité: patient.specialité || '',
+      provider: null,
+      provider_id: null,
+      last_login: null,
+      email_verified_at: null,
+      antecedents: patient.antecedents || []
+
+    }));
+    
+    setAntecedents(patient.antecedents?.map(ant => ({
+
+
+      titre: ant.titre,
+
+
+
+      description: ant.description
+    })) || []);
+    
     setIsFormVisible(true);
   };
+
 
   const handleDelete = (patient: Patient) => {
     setPatientToDelete(patient);
@@ -237,19 +421,18 @@ const MyComponent = () => {
       try {
         await patientService.deletePatient(patientToDelete.id);
         toast.success('Patient supprimé avec succès !');
-        const response = await patientService.getPatients();
-        setPatients(response.data.map(patient => ({
-          id: patient.id || 0,
-          name: patient.name || '',
-          prenom: patient.prenom || '',
-          email: patient.email || '',
-          password: patient.password || '',
-          role_id: patient.role_id || 4,
-          numeroTelephone: patient.numeroTelephone || '',
-          date_naissance: patient.date_naissance || '',
-          adresse: patient.adresse || '',
-          antecedents_medicaux: patient.antecedents_medicaux || ''
-        })));
+        // Supprimer le patient de la liste locale
+        setAllPatients(prevPatients => 
+          prevPatients.filter(patient => patient.id !== patientToDelete.id)
+        );
+        
+        // Ajuster la page courante si nécessaire
+        const newTotalItems = allPatients.length - 1;
+        const newTotalPages = Math.ceil(newTotalItems / itemsPerPage);
+        if (currentPage > newTotalPages && newTotalPages > 0) {
+          setCurrentPage(newTotalPages);
+        }
+        
       } catch (error) {
         toast.error('Erreur lors de la suppression du patient');
       } finally {
@@ -258,11 +441,26 @@ const MyComponent = () => {
         setPatientToDelete(null);
       }
     }
+
   };
 
   const cancelDelete = () => {
     setShowConfirmModal(false);
     setPatientToDelete(null);
+  };
+
+  const handleAddAntecedent = () => {
+    setAntecedents([...antecedents, { titre: '', description: '' }]);
+  };
+
+  const handleRemoveAntecedent = (index: number) => {
+    setAntecedents(antecedents.filter((_, i) => i !== index));
+  };
+
+  const handleAntecedentChange = (index: number, field: 'titre' | 'description', value: string) => {
+    const newAntecedents = [...antecedents];
+    newAntecedents[index][field] = value;
+    setAntecedents(newAntecedents);
   };
 
   if (loading) return <Loading />;
@@ -306,6 +504,12 @@ const MyComponent = () => {
       </div>
 
       <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+        <div className="overflow-x-auto">
+          {/* Contrôles de pagination en haut */}
+          <div className="flex justify-between items-center mb-4">
+
+          </div>
+
           <table className="min-w-full bg-white">
             <thead className="bg-gray-100">
               <tr>
@@ -318,27 +522,29 @@ const MyComponent = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {paginatedPatients.length > 0 ? (
-                paginatedPatients.map((patient: Patient) => (
+
+
+              {paginationData.currentItems.length > 0 ? (
+                paginationData.currentItems.map((patient: Patient) => (
                   <tr key={patient.id} className="hover:bg-gray-50">
                     <td className="py-3 px-4">{patient.name}</td>
                     <td className="py-3 px-4">{patient.prenom}</td>
                     <td className="py-3 px-4">{patient.numeroTelephone}</td>
                     <td className="py-3 px-4">{patient.email}</td>
-                    <td className="py-3 px-4">{new Date(patient.date_naissance).toLocaleDateString('fr-FR')}</td>
+                    <td className="py-3 px-4">
+                      {new Date(patient.date_naissance).toLocaleDateString('fr-FR')}
+                    </td>
                     <td className="py-3 px-4">
                       <div className="flex space-x-2">
                         <button 
                           onClick={() => handleEdit(patient)}
                           className="text-blue-500 hover:text-blue-700 cursor-pointer"
-                          title="Modifier"
                         >
                           <FaEdit size={18} />
                         </button>
                         <button 
                           onClick={() => handleDelete(patient)}
                           className="text-red-500 hover:text-red-700 cursor-pointer"
-                          title="Supprimer"
                         >
                           <FaTrash size={18} />
                         </button>
@@ -347,13 +553,34 @@ const MyComponent = () => {
                   </tr>
                 ))
               ) : (
-                <tr><td colSpan={6} className="p-4 text-center">Aucun patient trouvé</td></tr>
+                <tr>
+
+
+                  <td colSpan={6} className="text-center py-8">
+                    {searchTerm ? (
+                      <div>
+                        <p className="text-gray-500 mb-2">Aucun patient trouvé pour "{searchTerm}"</p>
+                        <button
+                          onClick={() => handleSearch('')}
+                          className="text-blue-500 hover:text-blue-700 text-sm"
+                        >
+                          Effacer la recherche
+                        </button>
+                      </div>
+                    ) : (
+                      'Aucun patient trouvé'
+                    )}
+                  </td>
+                </tr>
               )}
             </tbody>
           </table>
-                  <div className="overflow-x-auto">
-          <div className="flex justify-end mb-4">
-            <div className="flex items-center gap-2">
+            <div className="text-sm text-gray-600">
+              Affichage de {paginationData.startIndex + 1} à{' '}
+              {Math.min(paginationData.endIndex, paginationData.totalItems)} sur {paginationData.totalItems} entrées
+              {searchTerm && ` (filtré de ${allPatients.length} entrées au total)`}
+            </div>
+            <div className="flex justify-end items-center gap-2">
               <label htmlFor="itemsPerPage" className="text-sm text-gray-600">
                 Éléments par page :
               </label>
@@ -363,60 +590,108 @@ const MyComponent = () => {
                 onChange={handleItemsPerPageChange}
                 className="border rounded px-2 py-1 text-sm"
               >
-                {[5, 10, 15, 20].map((value) => (
+                {[5, 10, 15, 20, 25, 50].map((value) => (
                   <option key={value} value={value}>
                     {value}
                   </option>
                 ))}
               </select>
             </div>
-          </div>
 
-          {/* Remplacer la pagination existante par celle-ci */}
-          {currentPatients.length > 0 && (
-            <div className="flex justify-end items-center gap-4 mt-4">
-              <div className="text-sm text-gray-600">
-                Affichage de {indexOfFirstItem + 1} à{' '}
-                {Math.min(indexOfLastItem, currentPatients.length)} sur{' '}
-                {currentPatients.length} entrées
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => handlePageChange(currentPage - 1)}
-                  disabled={currentPage === 1}
-                  className="cursor-pointer px-3 py-1 rounded bg-blue-500 hover:bg-blue-300 disabled:bg-gray-300 text-sm text-white"
-                >
-                  Précédent
-                </button>
+          {/* Pagination en bas */}
+          {paginationData.totalPages > 1 && (
+            <div className="flex justify-end items-right gap-2 mt-6">
+              <button
+                onClick={() => handlePageChange(currentPage - 1)}
+                disabled={currentPage === 1}
+                className="cursor-pointer px-3 py-1 rounded bg-blue-500 text-white disabled:bg-gray-300 disabled:cursor-not-allowed"
+              >
+                Précédent
+              </button>
+              
+              {/* Affichage des numéros de page */}
+              {(() => {
+                const pages = [];
+                const maxVisiblePages = 5;
+                let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+                let endPage = Math.min(paginationData.totalPages, startPage + maxVisiblePages - 1);
                 
-                {[...Array(totalPages)].map((_, index) => (
-                  <button
-                    key={index}
-                    onClick={() => handlePageChange(index + 1)}
-                    className={`px-3 py-1 rounded text-sm ${
-                      currentPage === index + 1
-                        ? 'bg-blue-500 text-white'
-                        : 'bg-gray-200 hover:bg-gray-300'
-                    }`}
-                  >
-                    {index + 1}
-                  </button>
-                ))}
-                
-                <button
-                  onClick={() => handlePageChange(currentPage + 1)}
-                  disabled={currentPage === totalPages}
-                  className="cursor-pointer px-3 py-1 rounded bg-blue-500 hover:bg-blue-300 disabled:bg-gray-300 text-sm text-white"
-                >
-                  Suivant
-                </button>
-              </div>
+                // Ajuster startPage si on est près de la fin
+                if (endPage - startPage + 1 < maxVisiblePages) {
+                  startPage = Math.max(1, endPage - maxVisiblePages + 1);
+                }
+                // Première page + ellipsis si nécessaire
+                if (startPage > 1) {
+                  pages.push(
+                    <button
+                      key={1}
+                      onClick={() => handlePageChange(1)}
+                      className="px-3 py-1 rounded bg-gray-200 hover:bg-gray-300"
+                    >
+                      1
+                    </button>
+                  );
+                  if (startPage > 2) {
+                    pages.push(<span key="ellipsis1" className="px-2">...</span>);
+                  }
+                }
+
+                // Pages visibles
+                for (let i = startPage; i <= endPage; i++) {
+                  pages.push(
+                    <button
+                      key={i}
+                      onClick={() => handlePageChange(i)}
+                      className={`px-3 py-1 rounded ${
+                        currentPage === i
+                          ? 'bg-blue-500 text-white'
+                          : 'bg-gray-200 hover:bg-gray-300'
+                      }`}
+                    >
+                      {i}
+                    </button>
+                  );
+                }
+
+                // Dernière page + ellipsis si nécessaire
+                if (endPage < paginationData.totalPages) {
+                  if (endPage < paginationData.totalPages - 1) {
+                    pages.push(<span key="ellipsis2" className="px-2">...</span>);
+                  }
+                  pages.push(
+                    <button
+                      key={paginationData.totalPages}
+                      onClick={() => handlePageChange(paginationData.totalPages)}
+                      className="px-3 py-1 rounded bg-gray-200 hover:bg-gray-300"
+                    >
+                      {paginationData.totalPages}
+                    </button>
+                  );
+                }
+
+                return pages;
+              })()}
+              
+              <button
+                onClick={() => handlePageChange(currentPage + 1)}
+                disabled={currentPage === paginationData.totalPages}
+                className="cursor-pointer px-3 py-1 rounded bg-blue-500 text-white disabled:bg-gray-300 disabled:cursor-not-allowed"
+              >
+                Suivant
+              </button>
             </div>
           )}
 
-          <div className="flex justify-between items-center mt-6">
+
+          {/* Informations de pagination */}
+          <div className="flex justify-between items-center mt-4">
             <div className="text-sm text-gray-600">
-              {currentPatients.length} patient(s) trouvé(s)
+
+              Page {currentPage} sur {paginationData.totalPages}
+            </div>
+            <div className="text-sm text-gray-600">
+              {paginationData.totalItems} patient(s) au total
+              {searchTerm && ` (${allPatients.length} sans filtre)`}
             </div>
           </div>
         </div>
@@ -502,15 +777,108 @@ const MyComponent = () => {
                   required
                 />
               </div>
-              <div className="mb-4">
-                <label htmlFor="antecedents_medicaux" className="block text-gray-700">Antécédents médicaux</label>
-                <textarea
-                  id="antecedents_medicaux"
-                  className="w-full px-4 py-2 border rounded"
-                  value={patientData.antecedents_medicaux}
-                  onChange={(e) => setPatientData({ ...patientData, antecedents_medicaux: e.target.value })}
-                />
+
+              <div className="mb-6">
+                <h3 className="text-lg font-semibold mb-3 text-blue-600 border-b pb-2">
+                  Informations professionnelles
+                </h3>
+                
+                <div className="mb-4">
+                  <label htmlFor="emploi" className="block text-gray-700 mb-1">Emploi</label>
+                  <input
+                    type="text"
+                    id="emploi"
+                    className="w-full px-4 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    value={patientData.emploi || ''}
+                    onChange={(e) => setPatientData({ ...patientData, emploi: e.target.value })}
+                  />
+                </div>
+
+                <div className="mb-4">
+                  <label htmlFor="organisme" className="block text-gray-700 mb-1">Organisme</label>
+                  <input
+                    type="text"
+                    id="organisme"
+                    className="w-full px-4 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    value={patientData.organisme || ''}
+                    onChange={(e) => setPatientData({ ...patientData, organisme: e.target.value })}
+                  />
+                </div>
+
+                <div className="mb-4">
+                  <label htmlFor="numerodossierprisenchage" className="block text-gray-700 mb-1">
+                    Numéro de dossier de prise en charge
+                  </label>
+                  <input
+                    type="text"
+                    id="numerodossierprisenchage"
+                    className="w-full px-4 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    value={patientData.numerodossierprisenchage || ''}
+                    onChange={(e) => setPatientData({ ...patientData, numerodossierprisenchage: e.target.value })}
+                  />
+                </div>
+
+                <div className="mb-4">
+                  <label htmlFor="specialite" className="block text-gray-700 mb-1">Spécialité</label>
+                  <input
+                    type="text"
+                    id="specialite"
+                    className="w-full px-4 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    value={patientData.specialité || ''}
+                    onChange={(e) => setPatientData({ ...patientData, specialité: e.target.value })}
+                  />
+                </div>
               </div>
+
+              <div className="mb-6">
+                <h3 className="text-lg font-semibold mb-3 text-blue-600 border-b pb-2">
+                  Antécédents Médicaux
+                </h3>
+                
+                {antecedents.map((antecedent, index) => (
+                  <div key={index} className="mb-4 p-4 border rounded-lg bg-gray-50">
+                    <div className="flex justify-between mb-2">
+                      <h4 className="font-medium">Antécédent #{index + 1}</h4>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveAntecedent(index)}
+                        className="text-red-500 hover:text-red-700"
+                      >
+                        <FaTimes />
+                      </button>
+                    </div>
+                    
+                    <div className="mb-2">
+                      <label className="block text-gray-700 mb-1">Titre</label>
+                      <input
+                        type="text"
+                        className="w-full px-4 py-2 border rounded"
+                        value={antecedent.titre}
+                        onChange={(e) => handleAntecedentChange(index, 'titre', e.target.value)}
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-gray-700 mb-1">Description</label>
+                      <textarea
+                        className="w-full px-4 py-2 border rounded"
+                        value={antecedent.description || ''}
+                        onChange={(e) => handleAntecedentChange(index, 'description', e.target.value)}
+                      />
+                    </div>
+                  </div>
+                ))}
+                
+                <button
+                  type="button"
+                  onClick={handleAddAntecedent}
+                  className="cursor-pointer mt-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg flex items-center gap-2"
+                >
+                  <FaPlus size={14} />
+                  Ajouter un antécédent
+                </button>
+              </div>
+
               <div className="flex justify-between items-center float-right mb-4">
                 <Button 
                   disabled={isSubmitting}
@@ -546,18 +914,18 @@ const MyComponent = () => {
                 <button
                   onClick={cancelDelete}
                   disabled={isDeletingPatient}
-                  className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-md transition-colors disabled:opacity-50"
+                  className="cursor-pointer px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-md transition-colors disabled:opacity-50"
                 >
                   Annuler
                 </button>
                 <button
                   onClick={confirmDelete}
                   disabled={isDeletingPatient}
-                  className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-md transition-colors disabled:opacity-50 flex items-center space-x-2"
+                  className="cursor-pointer px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-md transition-colors disabled:opacity-50 flex items-center space-x-2"
                 >
                   {isDeletingPatient ? (
                     <>
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      <div className=" w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                       <span>Suppression...</span>
                     </>
                   ) : (

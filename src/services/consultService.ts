@@ -74,6 +74,11 @@ export interface Consultation {
     numero_dossier?: string | null;
     organisme?: string | null;
   }[];
+  paiement_initial?: {
+    montant: number;
+    type: 'espece';
+    date: string;
+  };
 }
 
 export interface ConsultationResponse {
@@ -226,12 +231,14 @@ export const consultService = {
         })),
         traitements: consultationData.traitements,
         produits: consultationData.produits,
-        paiements: consultationData.paiements.map(p => ({
-          montant: Number(p.montant).toFixed(2),
-          date: p.date,
-          type: p.type,
-          numero_mobile: p.type === 'mobilemoney' ? p.numero_mobile : null
-        }))
+        paiements: [
+          ...(consultationData.paiement_initial ? [{
+            montant: Number(consultationData.paiement_initial.montant).toFixed(2),
+            date: consultationData.paiement_initial.date,
+            type: 'espece'
+          }] : []),
+          ...consultationData.paiements
+        ]
       };
 
       // Validate required fields
