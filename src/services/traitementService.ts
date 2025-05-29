@@ -20,6 +20,7 @@ export interface Traitement {
   id: number;
   nom: string;
   prix: string | number;  // Update this line to handle both string and number
+  prixprisenchager: string | number | null;
   created_at: string;
   updated_at: string;
   services: Service[];
@@ -39,7 +40,8 @@ export const traitementService = {
   create: async (traitement: Partial<Traitement>) => {
     const formattedData = {
       nom: traitement.nom,
-      prix: parseFloat(traitement.prix?.toString() || '0').toFixed(2), // Format price as decimal with 2 places
+      prix: parseFloat(traitement.prix?.toString() || '0').toFixed(2),
+      prixprisenchager: traitement.prixprisenchager ? Math.round(Number(traitement.prixprisenchager)) : null, // Converti en entier
       services: traitement.services?.map(service => service.id)
     };
     const { data } = await axiosInstance.post<Traitement>(ENDPOINTS.TRAITEMENTS, formattedData);
@@ -49,8 +51,9 @@ export const traitementService = {
   update: async (id: number, traitement: Partial<Traitement>) => {
     const formattedData = {
       nom: traitement.nom,
-      prix: Number(traitement.prix).toFixed(2), // Format price to match API expectation
-      services: traitement.services?.map(service => service.id) || [] // Changed from service_ids to services
+      prix: Number(traitement.prix).toFixed(2),
+      prixprisenchager: traitement.prixprisenchager ? Math.round(Number(traitement.prixprisenchager)) : null, // Converti en entier
+      services: traitement.services?.map(service => service.id) || []
     };
     
     try {

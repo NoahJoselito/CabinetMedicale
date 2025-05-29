@@ -1,7 +1,9 @@
+import { JSX } from 'react';
 import axiosInstance from './axiosConfig';
 import { ENDPOINTS } from './config';
 
 export interface Patient {
+  prisesEnCharge: any;
   id: number;
   name: string;
   email: string;
@@ -9,6 +11,19 @@ export interface Patient {
   numeroTelephone: string;
   date_naissance: string;
   adresse: string;
+  specialité?: string | null;
+  emploi?: string | null;
+  role_id: number;
+  organisme: string | null;
+  numerodossierprisenchage: string | null;
+  antecedents: {
+    id: number;
+    user_id: number;
+    titre: string;
+    description: string | null;
+    created_at: string;
+    updated_at: string;
+  }[];
 }
 
 interface Antecedent {
@@ -18,10 +33,25 @@ interface Antecedent {
 
 export interface Treatment {
   id: number;
-  nom: string;        // Changer libelle à nom pour correspondre à l'API
-  description?: string;
-  prix: number;      // Changer prix pour correspondre à l'API
-  status?: string;
+  nom: string;
+  prix: string;
+  prixprisenchager: number | null;
+  created_at: string;
+  updated_at: string;
+  services: Array<{
+    id: number;
+    icone: string;
+    nom: string;
+    description_courte: string;
+    details: string;
+    horaires: string;
+    created_at: string;
+    updated_at: string;
+    pivot: {
+      traitement_id: number;
+      service_id: number;
+    };
+  }>;
 }
 
 export interface Product {
@@ -43,42 +73,36 @@ export interface Payment {
 }
 
 export interface Consultation {
+  paiement_initial: any;
+  total(total: any): unknown;
   patient: {
+    adresse: string;
+    date_naissance: null;
+    id: number;
     name: string;
     prenom: string;
     email: string;
-    password?: string;
-    password_confirmation?: string;  // Add password confirmation
     role_id: number;
-    numeroTelephone?: string;
-    date_naissance?: string;
-    adresse?: string;
+    numeroTelephone: string;
   };
   date_consultation: string;
   nb_seances: number;
-  total: number;
   observation: string;
   temperature: number;
   tension: string;
-  antecedents: {
+  antecedents: Array<{
+    id: number;
+    user_id: number;
     titre: string;
     description: string | null;
-  }[];
+  }>;
   traitements: number[];
   produits: number[];
-  paiements: {
+  paiements: Array<{
     montant: number;
     date: string;
     type: 'espece' | 'mobilemoney' | 'prisencharge';
-    numero_mobile?: string | null;
-    numero_dossier?: string | null;
-    organisme?: string | null;
-  }[];
-  paiement_initial?: {
-    montant: number;
-    type: 'espece';
-    date: string;
-  };
+  }>;
 }
 
 export interface ConsultationResponse {
@@ -176,32 +200,122 @@ export interface PaymentRemaining {
   payementrestant: number;
 }
 
+export interface PriseEnCharge {
+  id: number;
+  numero_dossier: string;
+  organisme: string;
+  date_debut: string;
+  date_fin?: string;
+  status: 'active' | 'expired';
+}
+
+export interface PatientDetails {
+  antecedents?: {
+    id: number;
+    titre: string;
+    description: string | null;
+  }[];
+  prisesEnCharge?: PriseEnCharge[];
+}
+
+interface PaginatedResponse<T> {
+  current_page: number;
+  data: T[];
+  first_page_url: string;
+  from: number;
+  last_page: number;
+  last_page_url: string;
+  next_page_url: string | null;
+  path: string;
+  per_page: number;
+  prev_page_url: string | null;
+  to: number;
+  total: number;
+}
+
+interface PatientSearchParams {
+  search?: string;
+  page?: number;
+  per_page?: number;
+}
+
+export interface CreatePatientData extends Omit<Partial<Patient>, 'antecedents'> {
+  password?: string;
+  password_confirmation?: string;
+  antecedents?: Array<{
+    titre: string;
+    description: string | null;
+  }>;
+  etatGeneral?: string;
+  observations?: string;
+}
+
 export const consultService = {
   searchPatients: async (query: string): Promise<Patient[]> => {
-    const response = await axiosInstance.get(`${ENDPOINTS.CONSULTATIONS.CONSPATIENTS.SEARCH}?q=${query}`);
-    return response.data;
+    try {
+      const params: PatientSearchParams = {
+        search: query,
+        per_page: 10
+      };
+
+      const response = await axiosInstance.get(ENDPOINTS.CONSULTATIONS.CONSPATIENTS.LIST, {
+        params
+      });
+
+      // Handle both paginated and non-paginated responses
+      const patients = response.data.data || response.data;
+      console.log('Search response:', patients);
+      
+      return Array.isArray(patients) ? patients : [];
+    } catch (error) {
+      console.error('Search error:', error);
+      throw error;
+    }
   },
-  getPatientById: async (id: number): Promise<Patient> => {
-    const response = await axiosInstance.get(`${ENDPOINTS.CONSULTATIONS.CONSPATIENTS}/id/${id}`);
-    return response.data;
+
+  getPatientDetails: async (patientId: number): Promise<Patient> => {
+    try {
+      const response = await axiosInstance.get(
+        ENDPOINTS.CONSULTATIONS.CONSPATIENTS.GET_BY_ID(patientId)
+      );
+      
+      if (response.data) {
+        console.log('Patient details:', response.data);
+        return response.data;
+      }
+      throw new Error('Patient non trouvé');
+    } catch (error) {
+      console.error('Error fetching patient details:', error);
+      throw error;
+    }
   },
-  createPatient: async (patientData: Partial<Patient>) => {
+  createPatient: async (patientData: CreatePatientData) => {
     try {
       const formattedData = {
         ...patientData,
-        role_id: 4, // Patient role
-        password: 'DefaultPass123!', // Default password
-        password_confirmation: 'DefaultPass123!' // Password confirmation
+        role_id: 4,
+        password: 'DefaultPass123!',
+        password_confirmation: 'DefaultPass123!',
+        antecedents: patientData.antecedents?.map(ant => ({
+          titre: ant.titre,
+          description: ant.description || null
+        })),
+        etatGeneral: patientData.etatGeneral || null,
+        observations: patientData.observations || null
       };
 
+      console.log('Creating patient with data:', formattedData);
+
       const response = await axiosInstance.post(ENDPOINTS.CONSULTATIONS.CONSPATIENTS.CREATE, formattedData);
+      
       if (response.data) {
+        console.log('Created patient:', response.data);
         return response.data;
       }
       throw new Error('Erreur lors de la création du patient');
     } catch (error: any) {
-      const errorMessage = error.response?.data?.message || 'Erreur lors de la création du patient';
-      throw error;
+      console.error('Error creating patient:', error.response?.data || error.message);
+      throw error.response?.data || error;
     }
   },
   createConsultation: async (consultationData: Consultation): Promise<ConsultationResponse> => {
@@ -274,10 +388,12 @@ export const consultService = {
       if (Array.isArray(response.data)) {
         return response.data.map(item => ({
           id: item.id,
-          nom: item.nom,           // Utiliser item.nom au lieu de item.libelle
-          description: item.description,
+          nom: item.nom,
           prix: item.prix,
-          status: item.status
+          prixprisenchager: item.prixprisenchager || null,
+          created_at: item.created_at || new Date().toISOString(),
+          updated_at: item.updated_at || new Date().toISOString(),
+          services: item.services || []
         }));
       }
       return [];
@@ -415,4 +531,4 @@ export const consultService = {
       throw error;
     }
   },
-};
+  };

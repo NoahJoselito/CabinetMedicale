@@ -23,13 +23,18 @@ export const metadata = {
 
 export default function RootLayout({
   children,
-}: Readonly<{ children: React.ReactNode }>) {
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <html lang="fr">
       <head>
         {/* Explicitement définir le theme-color dans le <head> */}
         <meta name="theme-color" content="#1D4ED8" />
-        <meta name="description" content="Plateforme pour la gestion d'un cabinet médical" />
+        <meta
+          name="description"
+          content="Plateforme pour la gestion d'un cabinet médical"
+        />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.png" type="image/png" />
       </head>
@@ -37,15 +42,14 @@ export default function RootLayout({
         {children}
         <ToastContainer
           position="top-right"
-          autoClose={5000}
+          autoClose={3000}
           hideProgressBar={false}
-          newestOnTop
+          newestOnTop={false}
           closeOnClick
           rtl={false}
           pauseOnFocusLoss
           draggable
           pauseOnHover
-          theme="light"
         />
       </body>
     </html>

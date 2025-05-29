@@ -51,20 +51,8 @@ export default function DossierMedical() {
       id: 0, 
       nom: "", 
       prix: "",
-      services: [] as {
-        id: number;
-        icone: string;
-        nom: string;
-        description_courte: string;
-        details: string;
-        horaires: string;
-        created_at: string;
-        updated_at: string;
-        pivot: {
-          traitement_id: number;
-          service_id: number;
-        };
-      }[],
+      prixprisenchager: null,
+      services: [] as Service[],
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     });
@@ -142,6 +130,7 @@ export default function DossierMedical() {
       const formattedTraitement = {
         nom: nouveauTraitement.nom,
         prix: Number(nouveauTraitement.prix),
+        prixprisenchager: nouveauTraitement.prixprisenchager ? Number(nouveauTraitement.prixprisenchager) : null, // Ajout de cette ligne
         services: nouveauTraitement.services.map(s => ({
           id: s.id,
           icone: s.icone,
@@ -170,6 +159,7 @@ export default function DossierMedical() {
         id: 0, 
         nom: "", 
         prix: "", 
+        prixprisenchager: null,
         services: [], 
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
@@ -211,16 +201,26 @@ export default function DossierMedical() {
   };  
   const handleEdit = (traitement: {
     services: {
-      pivot: { traitement_id: number; service_id: number; }; id: number; icone: string; nom: string; description_courte: string; details: string; horaires: string; created_at: string; updated_at: string; 
-}[];
+      pivot: { traitement_id: number; service_id: number; }; 
+      id: number; 
+      icone: string; 
+      nom: string; 
+      description_courte: string; 
+      details: string; 
+      horaires: string; 
+      created_at: string; 
+      updated_at: string; 
+    }[];
     id: number;
     nom: string;
     prix: number;
+    prixprisenchager?: number | null; // Ajout du champ prixprisenchager
 }) => {
     setNouveauTraitement({ 
       id: traitement.id, 
       nom: traitement.nom, 
       prix: traitement.prix.toString(),
+      prixprisenchager: traitement.prixprisenchager?.toString() || null, // Ajout de cette ligne
       services: (traitement.services || []).map(service => ({
         ...service,
         pivot: service.pivot || {
@@ -233,8 +233,8 @@ export default function DossierMedical() {
     });
     setIsEditing(true);
     setShowForm(true);
-  };
-  const handleDelete = (id: number) => {
+
+  };  const handleDelete = (id: number) => {
     setTraitementToDelete(id);
     setShowDeleteConfirm(true);
   };
@@ -288,6 +288,7 @@ export default function DossierMedical() {
               id: 0, 
               nom: "", 
               prix: "", 
+              prixprisenchager: null,
               services: [],
               created_at: new Date().toISOString(),
               updated_at: new Date().toISOString()
@@ -338,6 +339,7 @@ export default function DossierMedical() {
                 <th className="py-3 px-4 text-left text-sm font-medium text-gray-600 uppercase tracking-wider">ID</th>
                 <th className="py-3 px-4 text-left text-sm font-medium text-gray-600 uppercase tracking-wider">Nom du traitement</th>
                 <th className="py-3 px-4 text-left text-sm font-medium text-gray-600 uppercase tracking-wider">Prix (Ar)</th>
+                <th className="py-3 px-4 text-left text-sm font-medium text-gray-600 uppercase tracking-wider">Prix prise en charge (Ar)</th>
                 <th className="py-3 px-4 text-left text-sm font-medium text-gray-600 uppercase tracking-wider">Services</th>
                 <th className="py-3 px-4 text-left text-sm font-medium text-gray-600 uppercase tracking-wider">Actions</th>
               </tr>
@@ -351,6 +353,13 @@ export default function DossierMedical() {
                     {typeof traitement.prix === 'string' 
                       ? parseFloat(traitement.prix).toLocaleString()
                       : traitement.prix?.toLocaleString() || '0'} Ar
+                  </td>
+                  <td className="py-3 px-4 text-sm text-gray-500">
+                    {traitement.prixprisenchager 
+                      ? (typeof traitement.prixprisenchager === 'string'
+                          ? parseFloat(traitement.prixprisenchager).toLocaleString()
+                          : traitement.prixprisenchager.toLocaleString())
+                      : 'Non défini'} {traitement.prixprisenchager ? 'Ar' : ''}
                   </td>
                   <td className="py-3 px-4 text-sm text-gray-500">
                     {getServiceNames(traitement.services || [])}
@@ -475,6 +484,22 @@ export default function DossierMedical() {
               min="0"
               className="text-black w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
               placeholder="Ex: 20000"
+            />
+          </div>
+          
+          <div>
+            <label htmlFor="prixprisenchager" className="block text-sm font-medium text-gray-700 mb-1">
+              Prix prise en charge (Ar)
+            </label>
+            <input
+              type="number"
+              id="prixprisenchager"
+              name="prixprisenchager"
+              value={nouveauTraitement.prixprisenchager || ''}
+              onChange={handleChange}
+              min="0"
+              className="text-black w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              placeholder="Ex: 50000"
             />
           </div>
           

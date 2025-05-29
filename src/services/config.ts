@@ -29,10 +29,10 @@ export const ENDPOINTS = {
     CONSPATIENTS: {
       SEARCH: '/patients/search',
       LIST: '/patients',
-      CREATE: '/register', // Changed from '/patients' to '/register'
+      CREATE: '/register',  // Updated to match the backend endpoint
       UPDATE: (id: number) => `/patients/${id}`,
-      GET_BY_ID: (id: number) => `/patients/${id}`, // Use this for patient details
-      GET_CONSULTATIONS: (id: number) => `/consultations/patients/${id}/consultations`, // Updated endpoint path
+      GET_BY_ID: (id: number) => `/patients/${id}`,
+      GET_CONSULTATIONS: (id: number) => `/consultations/patients/${id}/consultations`,
     },
     TREATMENTS: '/traitements',    // Mettre à jour l'endpoint pour les traitements
     PRODUCTS: '/stocks',              // Updated path to match backend
