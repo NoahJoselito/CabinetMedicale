@@ -30,11 +30,18 @@ export const getDashboardData = async () => {
     
     console.log('Active Consultations Count:', activeConsultations.length);
 
+    // Données simulées du chiffre d'affaires (à remplacer par l'appel API réel)
+    const revenueData = {
+      labels: ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc'],
+      data: [45000, 52000, 48000, 54000, 58000, 47000, 51000, 55000, 49000, 53000, 56000, 50000]
+    };
+
     return {
       patients: patientsResponse.data?.data || patientsResponse.data || [],
       consultations: activeConsultations,
       totalConsultations: activeConsultations.length,
-      recentConsultations: activeConsultations.slice(0, 5)
+      recentConsultations: activeConsultations.slice(0, 5),
+      revenue: revenueData
     };
   } catch (error) {
     console.error('Error fetching dashboard data:', error);
@@ -42,7 +49,8 @@ export const getDashboardData = async () => {
       patients: [], 
       consultations: [], 
       totalConsultations: 0,
-      recentConsultations: []
+      recentConsultations: [],
+      revenue: { labels: [], data: [] }
     };
   }
 };

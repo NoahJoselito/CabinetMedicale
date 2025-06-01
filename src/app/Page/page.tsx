@@ -4,6 +4,25 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { getDashboardData } from '@/services/dashService';
 import { FaUsers, FaCalendarCheck, FaChartLine } from 'react-icons/fa';
+import { Bar } from 'react-chartjs-2';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend
+} from 'chart.js';
+
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend
+);
 
 const Loading = () => (
 <div className="min-h-screen flex items-center justify-center bg-gray-100">
@@ -55,6 +74,10 @@ interface DashboardData {
   patients: Patient[];
   consultations: any[];
   totalConsultations: number;
+  revenue: {
+    labels: string[];
+    data: number[];
+  };
 }
 
 export default function Dashboard() {
@@ -62,7 +85,11 @@ export default function Dashboard() {
   const [dashboardData, setDashboardData] = useState<DashboardData>({
     patients: [],
     consultations: [],
-    totalConsultations: 0
+    totalConsultations: 0,
+    revenue: {
+      labels: [],
+      data: []
+    }
   });
 
   useEffect(() => {
@@ -74,7 +101,8 @@ export default function Dashboard() {
         setDashboardData({
           patients: Array.isArray(data.patients) ? data.patients : [],
           consultations: data.consultations,
-          totalConsultations: data.totalConsultations
+          totalConsultations: data.totalConsultations,
+          revenue: data.revenue
         });
         
         console.log('Dashboard State Updated:', {
@@ -83,7 +111,7 @@ export default function Dashboard() {
         });
       } catch (error) {
         console.error('Error loading dashboard:', error);
-        setDashboardData({ patients: [], consultations: [], totalConsultations: 0 });
+        setDashboardData({ patients: [], consultations: [], totalConsultations: 0, revenue: { labels: [], data: [] } });
       } finally {
         setLoading(false);
       }
@@ -96,7 +124,7 @@ export default function Dashboard() {
 
   return (
     <div className="p-6 w-full min-h-screen pt-20 bg-gray-100">
-      <h1 className="text-gray-800 text-3xl font-bold mb-8">Tableau de Bord</h1>
+      <h1 className="text-gray-600 text-3xl font-bold mb-8">Tableau de Bord</h1>
       
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
@@ -263,6 +291,92 @@ export default function Dashboard() {
           </div>
         </motion.div>
       </div>
+
+      {/* Revenue Chart */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.8 }}
+        className="bg-white rounded-lg shadow-lg p-6 mt-6"
+      >
+        <h2 className="text-xl font-semibold mb-4 text-gray-700">Chiffre d'affaires mensuel</h2>
+        <div className="h-[400px] w-full">
+          <Bar
+            data={{
+              labels: dashboardData.revenue?.labels || [],
+              datasets: [
+                {
+                  label: 'Chiffre d\'affaires (Ar)',
+                  data: dashboardData.revenue?.data || [],
+                  backgroundColor: 'rgba(34, 151, 197, 0.6)', // Plus vif
+                  borderColor: 'rgba(34, 151, 197, 0.6)',          // Vert plus prononcé
+                  borderWidth: 2,                           // Bordure plus épaisse
+                  borderRadius: 6,                          // Coins arrondis
+                  barThickness: 32,                         // Largeur des barres
+                }
+              ]
+            }}
+            options={{
+              responsive: true,
+              maintainAspectRatio: false,
+              devicePixelRatio: 2, // Améliore la netteté
+              plugins: {
+                legend: {
+                  position: 'top',
+                  labels: {
+                    font: {
+                      size: 14,
+                      weight: 'bold'
+                    },
+                    padding: 20
+                  }
+                },
+                title: {
+                  display: true,
+                  text: 'Chiffre d\'affaires par mois',
+                  font: {
+                    size: 16,
+                    weight: 'bold'
+                  },
+                  padding: 20
+                }
+              },
+              scales: {
+                y: {
+                  beginAtZero: true,
+                  grid: {
+                    color: 'rgba(0, 0, 0, 0.1)',
+                    drawOnChartArea: true,
+                   
+                  },
+                  ticks: {
+                    font: {
+                      size: 12,
+                      weight: 500
+                    },
+                    padding: 10,
+                    callback: function(value) {
+                      return value.toLocaleString() + ' Ar';
+                    }
+                  }
+                },
+                x: {
+                  grid: {
+                    display: false
+                  },
+                  ticks: {
+                    font: {
+                      size: 12,
+                      weight: 500
+                    },
+                    padding: 5
+                  }
+                }
+              }
+            }}
+          />
+        </div>
+      </motion.div>
     </div>
   );
 }
