@@ -55,25 +55,31 @@ export default function DossierMedical() {
     const loadConsultations = async () => {
       try {
         const data = await consultService.getConsultations();
-        // Mettre à jour les montants restants
-        const consultationsWithRemaining = await Promise.all(
+        // Mettre à jour les montants restants et les montants déjà payés
+        const consultationsWithPayments = await Promise.all(
           data.consultations.map(async (consultation) => {
-            if (consultation.statuspaiement !== 'Payé') {
-              try {
-                const remaining = await consultService.getPaymentRemaining(consultation.id);
-                return {
-                  ...consultation,
-                  payementrestant: remaining.payementrestant
-                };
-              } catch (error) {
-                console.error(`Error fetching remaining for consultation ${consultation.id}:`, error);
-                return consultation;
-              }
+            try {
+              const remaining = await consultService.getPaymentRemaining(consultation.id);
+              return {
+                ...consultation,
+                payementrestant: Number(remaining.payementrestant),
+                montantPaye: Number(consultation.total) - Number(remaining.payementrestant),
+                total: Number(consultation.total),
+                seancerestant: Number(consultation.seancerestant || 0)
+              } as unknown as ConsultationResponse;
+            } catch (error) {
+              console.error(`Error fetching payments for consultation ${consultation.id}:`, error);
+              return {
+                ...consultation,
+                payementrestant: Number(consultation.total),
+                montantPaye: 0,
+                total: Number(consultation.total),
+                seancerestant: Number(consultation.seancerestant || 0)
+              } as unknown as ConsultationResponse;
             }
-            return consultation;
           })
         );
-        setConsultations(consultationsWithRemaining);
+        setConsultations(consultationsWithPayments);
       } catch (error) {
         console.error('Failed to load consultations:', error);
       } finally {
@@ -105,6 +111,8 @@ export default function DossierMedical() {
   const totalPages = Math.ceil(filteredConsultations.length / itemsPerPage);
 
   const [currentPatient, setCurrentPatient] = useState<{
+    payementrestant(payementrestant: any): unknown;
+    montantPaye(montantPaye: any): unknown;
     id: number;
     name: string;
     seance: string;
@@ -137,14 +145,16 @@ export default function DossierMedical() {
     const consultation = consultations.find(c => c.id === id);
     if (consultation) {
       setCurrentPatient({
-        id: consultation.id,
-        name: `${consultation.patient.name} ${consultation.patient.prenom}`,
-        seance: consultation.traitements.map(t => t.nom).join(', '),
-        amount: Number(consultation.total),
-        paid: consultation.statuspaiement === 'Payé',
-        seanceCount: consultation.nb_seances,
-        completedSeances: consultation.nb_seances - (consultation.seancerestant || 0)
-      });
+              id: consultation.id,
+              name: `${consultation.patient.name} ${consultation.patient.prenom}`,
+              seance: consultation.traitements.map(t => t.nom).join(', '),
+              amount: Number(consultation.total),
+              paid: consultation.statuspaiement === 'Payé',
+              seanceCount: consultation.nb_seances,
+              completedSeances: consultation.nb_seances - (consultation.seancerestant || 0),
+              payementrestant: () => consultation.payementrestant,
+              montantPaye: () => consultation.montantPaye
+            });
     } else {
       setCurrentPatient(null);
     }
@@ -161,7 +171,9 @@ export default function DossierMedical() {
         amount: Number(consultation.total),
         paid: consultation.statuspaiement === 'Payé',
         seanceCount: consultation.seanceCount || 0,
-        completedSeances: consultation.completedSeances || 0
+        completedSeances: consultation.completedSeances || 0,
+        payementrestant: () => consultation.payementrestant,
+        montantPaye: () => consultation.montantPaye
       });
     } else {
       setCurrentPatient(null);
@@ -169,7 +181,6 @@ export default function DossierMedical() {
     setPaymentMethod('cash');
     setShowPaymentModal(true);
   };
-
   const confirmSeance = async () => {
     if (currentPatient) {
       setIsValidating(true);
@@ -416,6 +427,9 @@ export default function DossierMedical() {
                       <td className="py-3 px-6 text-right">
                         <div className="flex flex-col items-end">
                           <span>{Number(consultation.total).toLocaleString()} Ar</span>
+                          <span className="text-sm text-green-600">
+                            Payé: {Number(consultation.montantPaye).toLocaleString()} Ar
+                          </span>
                           {consultation.payementrestant > 0 && (
                             <span className="text-sm text-red-600">
                               Reste: {Number(consultation.payementrestant).toLocaleString()} Ar
@@ -672,27 +686,8 @@ export default function DossierMedical() {
               <p><span className="font-medium">Patient:</span> {currentPatient.name}</p>
               <p><span className="font-medium">Traitement:</span> {currentPatient.seance}</p>
               <p><span className="font-medium">Montant total:</span> {currentPatient.amount.toLocaleString()} Ar</p>
-              
-              <div className="mt-3 p-3 bg-green-50 rounded-lg">
-                <p className="font-medium text-green-700">Détails du paiement:</p>
-                <div className="flex items-center mt-2">
-                  <div className="w-full bg-gray-200 rounded-full h-2.5">
-                    <div 
-                      className="bg-green-600 h-2.5 rounded-full" 
-                      style={{ width: `${(currentPatient.completedSeances / currentPatient.seanceCount) * 100}%` }}
-                    ></div>
-                  </div>
-                  <span className="ml-2 text-green-700 font-medium">
-                    {currentPatient.completedSeances}/{currentPatient.seanceCount} séances
-                  </span>
-                </div>
-                <p className="mt-2 text-sm text-green-600">
-                  {currentPatient.completedSeances === currentPatient.seanceCount 
-                    ? "Toutes les séances ont été effectuées." 
-                    : `${currentPatient.completedSeances} séance(s) effectuée(s) sur ${currentPatient.seanceCount}.`
-                  }
-                </p>
-              </div>
+              <p><span className="font-medium">Déjà payé:</span> {Number(currentPatient.montantPaye).toLocaleString()} Ar</p>
+              <p><span className="font-medium">Reste à payer:</span> {Number(currentPatient.payementrestant).toLocaleString()} Ar</p>
             </div>
             
             <div className="mb-4 p-3 bg-blue-50 rounded-lg">

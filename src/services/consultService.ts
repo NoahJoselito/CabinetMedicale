@@ -106,6 +106,7 @@ export interface Consultation {
 }
 
 export interface ConsultationResponse {
+  montantPaye(montantPaye: any): unknown;
   consultation: any;
   completedSeances: number;
   seanceCount: number;

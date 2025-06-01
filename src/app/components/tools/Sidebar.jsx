@@ -16,7 +16,6 @@ const sidebarItems = [
   { icon: CalendarCheck, title: "Consultation", href: "/Page/consultation" },
   { icon: FileText, title: "Dossier Médical", href: "/Page/dossier" },
   { icon: CalendarDays, title: "Rendez-vous", href: "/Page/rendez_vous" },
-   { icon: CreditCard, title: "Salaire employé", href: "/Page/payement" },
 ];
 
 const Sidebar = () => {

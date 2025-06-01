@@ -22,7 +22,7 @@ export const ENDPOINTS = {
     DELETE: (id: number) => `/stocks/${id}`
   },
   CONSULTATIONS: {
-    LIST: '/consultations',
+    LIST: '/consultations',  // This should match your base URL endpoint
     CREATE: '/consultations',
     UPDATE: (id: number) => `/consultations/${id}`,
     GET_BY_ID: (id: number) => `/consultations/${id}`,
