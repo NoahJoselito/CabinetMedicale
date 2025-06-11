@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { FiEdit2, FiSave, FiLogOut, FiUser, FiMail, FiPhone, FiCalendar, FiMapPin, FiBriefcase, FiGlobe, FiUpload, FiCamera } from 'react-icons/fi';
 import Link from "next/link";
 import { img } from 'framer-motion/client';
+import { getUserProfile, updateUserProfile, UserProfile } from '@/services/profilService';
 
 const Loading = () => (
   <div className="min-h-screen flex items-center justify-center bg-gray-100">
@@ -44,43 +45,56 @@ const Loading = () => (
 
 export default function Profil() {
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [editMode, setEditMode] = useState(false);
-  const [userData, setUserData] = useState({
-    nom: "Dupont",
-    prenom: "Marie",
-    email: "marie.dupont@example.com",
-    telephone: "+261 34 567 89 01",
-    dateNaissance: "15/04/1985",
-    adresse: "Lot 160 Antananarivo, 75011 Madagascar",
-    emploi: "Pédiatre",
-    bio: "Passionnée de santé, je suis spécialisée en pédiatrie et je suis passionnée par la technologie médicale. Mon objectif est de contribuer à la santé et au bien-être de nos enfants grâce à la technologie avancée.",
-    siteWeb: "https://mariedupont.dev",
-    linkedin: "https://linkedin.com/in/mariedupont"
-  });
-  
-  const [formData, setFormData] = useState({ ...userData });
+  const [userData, setUserData] = useState<UserProfile | null>(null);
+  const [formData, setFormData] = useState<UserProfile | null>(null);
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    setTimeout(() => {
-      setLoading(false);
-    }, 2000);
+    const fetchUserData = async () => {
+      try {
+        const data = await getUserProfile();
+        setUserData(data);
+        setFormData(data);
+        if (data.image) {
+          setProfileImage(data.image);
+        }
+      } catch (err) {
+        setError('Erreur lors du chargement du profil');
+        console.error('Error fetching user profile:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUserData();
   }, []);
 
-  const handleEditToggle = () => {
-    if (editMode) {
-      setUserData({ ...formData });
+  const handleEditToggle = async () => {
+    if (editMode && formData) {
+      try {
+        const updatedData = await updateUserProfile(formData);
+        setUserData(updatedData);
+        setError(null);
+      } catch (err) {
+        setError('Erreur lors de la mise à jour du profil');
+        console.error('Error updating profile:', err);
+        return;
+      }
     }
     setEditMode(!editMode);
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setFormData({
-      ...formData,
-      [name]: value
-    });
+    if (formData) {
+      setFormData({
+        ...formData,
+        [name]: value
+      });
+    }
   };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -98,7 +112,36 @@ export default function Profil() {
     fileInputRef.current?.click();
   };
 
+  const getDisplayableFields = (user: UserProfile) => {
+    return {
+      'Nom complet': `${user.prenom} ${user.name}`,
+      'Email': user.email,
+      'Téléphone': user.numeroTelephone,
+      'Date de naissance': user.date_naissance,
+      'Adresse': user.adresse,
+      'Spécialité': user.specialité,
+      'Emploi': user.emploi,
+      'Organisme': user.organisme
+    };
+  };
+
   if (loading) { return <Loading />; }
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-red-600 text-center">
+          <p className="text-xl font-semibold">{error}</p>
+          <button 
+            onClick={() => window.location.reload()} 
+            className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+          >
+            Réessayer
+          </button>
+        </div>
+      </div>
+    );
+  }
+  if (!userData) return null;
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
@@ -140,8 +183,10 @@ export default function Profil() {
               )}
             </div>
             <div className="text-center md:text-left">
-              <h1 className="text-3xl font-bold">{userData.prenom} {userData.nom}</h1>
-              <p className="text-xl opacity-90">{userData.emploi}</p>
+              <h1 className="text-3xl font-bold">
+                {userData?.prenom} {userData?.name}
+              </h1>
+              <p className="text-xl opacity-90">{userData?.emploi}</p>
             </div>
             <div className="ml-auto mt-4 md:mt-0 flex space-x-3">
               <button 
@@ -161,23 +206,21 @@ export default function Profil() {
         <div className="p-8">
           <h2 className="text-2xl font-semibold text-gray-700">Informations personnelles</h2>
           <div className="mt-4 space-y-3 text-gray-600">
-            {Object.entries(userData).map(([key, value]) => (
-              key !== 'nom' && key !== 'prenom' && (
-                <div key={key}>
-                  <label className="block font-semibold capitalize">{key.replace(/([A-Z])/g, ' $1')} :</label>
-                  {editMode ? (
-                    <input 
-                      type="text" 
-                      name={key} 
-                      value={formData[key as keyof typeof formData]} 
-                      onChange={handleInputChange} 
-                      className="border p-2 rounded w-full"
-                    />
-                  ) : (
-                    <p className="text-gray-700">{value}</p>
-                  )}
-                </div>
-              )
+            {userData && Object.entries(getDisplayableFields(userData)).map(([key, value]) => (
+              <div key={key}>
+                <label className="block font-semibold">{key} :</label>
+                {editMode ? (
+                  <input 
+                    type="text" 
+                    name={key} 
+                    value={value} 
+                    onChange={handleInputChange} 
+                    className="border p-2 rounded w-full"
+                  />
+                ) : (
+                  <p className="text-gray-700">{value}</p>
+                )}
+              </div>
             ))}
           </div>
         </div>

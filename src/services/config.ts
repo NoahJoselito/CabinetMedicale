@@ -11,6 +11,7 @@ export const ENDPOINTS = {
   PATIENTS: {
     LIST: '/patients',
     CREATE: '/register', // Changed back to /register for creating new patients
+    SEARCH: '/patients/search',  // Add this line
     UPDATE: (id: number) => `/patients/${id}`,
     DELETE: (id: number) => `/patients/${id}`
   },
@@ -39,6 +40,19 @@ export const ENDPOINTS = {
     VALIDATE_SEANCE: '/consultations/addseance',
     PAYMENTS: '/payments',
     PAYMENT_REMAINING: (id: number) => `/payments/restant/${id}`,
+  },
+  APPOINTMENTS: {
+    CREATE: '/rendezvous',
+    LIST: '/rendezvous',
+    ALL: '/rendezvous', // Ajout de l'endpoint pour tous les rendez-vous
+    BY_MONTH: '/rendezvous/month',
+    BY_DATE: '/rendezvous/getbydate', // Ajout du nouvel endpoint
+    GET_BY_ID: (id: number) => `/rendezvous/${id}`,
+  },
+  DASHBOARD: {
+    RECENT_PATIENTS: '/dashboard/patients/recents',
+    REVENUE_MONTHLY: (year: number) => `/dashboard/revenue-monthly?year=${year}`,
+    REVENUE_DAILY: (year: number, month: number) => `/dashboard/revenue-daily?year=${year}&month=${month}`,
   }
 };
 

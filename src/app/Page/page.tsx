@@ -60,21 +60,36 @@ const Loading = () => (
 </div>
 
 );
+// Mise à jour de l'interface Patient
 interface Patient {
   id: number;
-  name?: string;
-  email?: string;
-  telephone?: string;  // Champ principal pour le téléphone
-  phone?: string;      // Fallback 1
-  phone_number?: string; // Fallback 2
-  created_at?: string;
+  name: string;
+  email: string;
+  created_at: string;
+}
+
+// Mise à jour de l'interface pour les rendez-vous
+interface Service {
+  nom: string;
+}
+
+interface Appointment {
+  id: number;
+  date: string;
+  original_time: string;
+  patientName: string;
+  service: string | Service;
 }
 
 interface DashboardData {
   patients: Patient[];
-  consultations: any[];
-  totalConsultations: number;
+  appointments: Appointment[];
+  totalAppointments: number;
   revenue: {
+    labels: string[];
+    data: number[];
+  };
+  dailyRevenue: {
     labels: string[];
     data: number[];
   };
@@ -84,9 +99,13 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [dashboardData, setDashboardData] = useState<DashboardData>({
     patients: [],
-    consultations: [],
-    totalConsultations: 0,
+    appointments: [],
+    totalAppointments: 0,
     revenue: {
+      labels: [],
+      data: []
+    },
+    dailyRevenue: {
       labels: [],
       data: []
     }
@@ -100,18 +119,19 @@ export default function Dashboard() {
         
         setDashboardData({
           patients: Array.isArray(data.patients) ? data.patients : [],
-          consultations: data.consultations,
-          totalConsultations: data.totalConsultations,
-          revenue: data.revenue
+          appointments: data.appointments,
+          totalAppointments: data.totalAppointments,
+          revenue: data.revenue,
+          dailyRevenue: data.dailyRevenue
         });
         
         console.log('Dashboard State Updated:', {
           patientsCount: data.patients.length,
-          consultationsCount: data.totalConsultations
+          appointmentsCount: data.totalAppointments
         });
       } catch (error) {
         console.error('Error loading dashboard:', error);
-        setDashboardData({ patients: [], consultations: [], totalConsultations: 0, revenue: { labels: [], data: [] } });
+        setDashboardData({ patients: [], appointments: [], totalAppointments: 0, revenue: { labels: [], data: [] }, dailyRevenue: { labels: [], data: [] } });
       } finally {
         setLoading(false);
       }
@@ -127,7 +147,7 @@ export default function Dashboard() {
       <h1 className="text-gray-600 text-3xl font-bold mb-8">Tableau de Bord</h1>
       
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -155,30 +175,9 @@ export default function Dashboard() {
               <FaCalendarCheck className="text-white text-2xl" />
             </div>
             <div className="ml-4">
-              <h2 className="text-gray-600 text-sm">Consultations</h2>
+              <h2 className="text-gray-600 text-sm">Rendez-vous</h2>
               <p className="text-2xl font-bold text-gray-700">
-                {dashboardData.totalConsultations}
-              </p>
-            </div>
-          </div>
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
-          className="bg-white rounded-lg shadow-lg p-6"
-        >
-          <div className="flex items-center">
-            <div className="bg-purple-500 p-3 rounded-full">
-              <FaChartLine className="text-white text-2xl" />
-            </div>
-            <div className="ml-4">
-              <h2 className="text-gray-600 text-sm">Taux de consultation</h2>
-              <p className="text-2xl font-bold text-gray-700">
-                {dashboardData.patients.length > 0 
-                  ? Math.round((dashboardData.consultations.length / dashboardData.patients.length) * 100)
-                  : 0}%
+                {dashboardData.totalAppointments}
               </p>
             </div>
           </div>
@@ -258,33 +257,32 @@ export default function Dashboard() {
                     Patient
                   </th>
                   <th className="px-4 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Statut
+                    Service
                   </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {dashboardData.consultations.map((appointment, index) => (
-                  <tr key={index} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">
-                        {new Date(appointment.date).toLocaleTimeString([], { hour: '2-digit', minute:'2-digit' })}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">
-                        {appointment.patientName}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full
-                        ${appointment.status === 'En attente' ? 'bg-yellow-100 text-yellow-800' : 
-                          appointment.status === 'Confirmé' ? 'bg-blue-100 text-blue-800' :
-                          appointment.status === 'En cours' ? 'bg-green-100 text-green-800' :
-                          'bg-gray-100 text-gray-800'}`}>
-                        {appointment.status}
-                      </span>
-                    </td>
-                  </tr>
+                {(Array.isArray(dashboardData.appointments) ? dashboardData.appointments : [])
+                  .map((appointment, index) => (
+                    <tr key={appointment.id || index} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">
+                          {appointment.original_time || 'N/A'}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <div className="text-sm font-medium text-gray-900">
+                          {appointment.patientName}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <div className="text-sm text-gray-500">
+                          {typeof appointment.service === 'string' 
+                            ? appointment.service 
+                            : appointment.service?.nom || 'N/A'}
+                        </div>
+                      </td>
+                    </tr>
                 ))}
               </tbody>
             </table>
@@ -319,8 +317,18 @@ export default function Dashboard() {
             options={{
               responsive: true,
               maintainAspectRatio: false,
-              devicePixelRatio: 2, // Améliore la netteté
+              devicePixelRatio: 2,
+              onHover: (event, chartElement) => {
+                if (event.native?.target) {
+                  (event.native.target as HTMLElement).style.cursor = chartElement[0] ? 'pointer' : 'default';
+                }
+              },
               plugins: {
+                tooltip: {
+                  enabled: true,
+                  mode: 'index',
+                  intersect: false,
+                },
                 legend: {
                   position: 'top',
                   labels: {
@@ -369,6 +377,83 @@ export default function Dashboard() {
                       size: 12,
                       weight: 500
                     },
+                    padding: 5
+                  }
+                }
+              }
+            }}
+          />
+        </div>
+      </motion.div>
+
+      {/* Daily Revenue Chart */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.9 }}
+        className="bg-white rounded-lg shadow-lg p-6 mt-6"
+      >
+        <h2 className="text-xl font-semibold mb-4 text-gray-700">Chiffre d'affaires journalier</h2>
+        <div className="h-[400px] w-full">
+          <Bar
+            data={{
+              labels: dashboardData.dailyRevenue?.labels || [],
+              datasets: [
+                {
+                  label: 'Chiffre d\'affaires (Ar)',
+                  data: dashboardData.dailyRevenue?.data || [],
+                  backgroundColor: 'rgba(72, 187, 120, 0.6)',
+                  borderColor: 'rgba(72, 187, 120, 0.6)',
+                  borderWidth: 2,
+                  borderRadius: 6,
+                  barThickness: 32,
+                }
+              ]
+            }}
+            options={{
+              responsive: true,
+              maintainAspectRatio: false,
+              devicePixelRatio: 2,
+              plugins: {
+                tooltip: {
+                  enabled: true,
+                  mode: 'index',
+                  intersect: false,
+                },
+                legend: {
+                  position: 'top',
+                  labels: {
+                    font: {
+                      size: 14,
+                      weight: 'bold'
+                    },
+                    padding: 20
+                  }
+                },
+                title: {
+                  display: true,
+                  text: `Chiffre d'affaires journalier - ${new Date().toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })}`,
+                  font: {
+                    size: 16,
+                    weight: 'bold'
+                  },
+                  padding: 20
+                }
+              },
+              scales: {
+                y: {
+                  beginAtZero: true,
+                  grid: { color: 'rgba(0, 0, 0, 0.1)' },
+                  ticks: {
+                    font: { size: 12, weight: 500 },
+                    padding: 10,
+                    callback: (value) => `${value.toLocaleString()} Ar`
+                  }
+                },
+                x: {
+                  grid: { display: false },
+                  ticks: {
+                    font: { size: 12, weight: 500 },
                     padding: 5
                   }
                 }

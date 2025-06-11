@@ -4,6 +4,9 @@ import React, { useState, useEffect, ReactNode } from 'react';
 import Input from '../../../components/ui/Input';
 import Button from '../../../components/ui/Button';
 import { consultService, Patient, Treatment } from '@/services/consultService';
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+import { useRouter } from 'next/navigation';
 
 interface Antecedent {
   id: number;
@@ -67,6 +70,8 @@ interface PaymentForm {
 }
 
 const ConsultationAjoutPage: React.FC = () => {
+  const router = useRouter();
+  
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState<Patient[]>([]);
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
@@ -265,20 +270,51 @@ const ConsultationAjoutPage: React.FC = () => {
         total: (total: any) => total
       };
 
-      const response = await consultService.createConsultation(consultationData);
-      console.log('Consultation créée:', response);
-
-      // Réinitialiser le formulaire
-      setConsultationForm({
-        date_consultation: '',
-        nb_seances: '1',
-        observation: '',
-        temperature: '37.0',
-        tension: ''
+      await consultService.createConsultation(consultationData);
+      
+      toast.success('Consultation créée avec succès!', {
+        position: "top-right",
+        autoClose: 2000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+        progress: undefined,
+        onClose: () => {
+          // Reset forms and redirect after toast closes
+          setConsultationForm({
+            date_consultation: '',
+            nb_seances: '1',
+            observation: '',
+            temperature: '37.0',
+            tension: ''
+          });
+          setSelectedTreatments([]);
+          setSelectedProducts([]);
+          setPaymentForm({
+            montant: '',
+            type: 'espece',
+            date_paiement: new Date().toISOString().split('T')[0]
+          });
+          setSelectedPatient(null);
+          setSearchTerm('');
+          
+          router.push('/consultation');
+          router.refresh();
+        }
       });
 
     } catch (error) {
       console.error('Erreur lors de la création de la consultation:', error);
+      toast.error('Erreur lors de la création de la consultation', {
+        position: "top-right",
+        autoClose: 5000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+        progress: undefined,
+      });
     } finally {
       setIsSubmittingConsultation(false);
     }
@@ -372,6 +408,18 @@ const ConsultationAjoutPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
+      <ToastContainer
+        position="top-right"
+        autoClose={2000}
+        hideProgressBar={false}
+        newestOnTop={false}
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+        theme="light"
+      />
       <div className="max-w- mx-auto">
         
           <h1 className="text-2xl font-bold text-gray-700 mb-6">

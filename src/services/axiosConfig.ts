@@ -1,5 +1,11 @@
-import axios from 'axios';
+import axios, { InternalAxiosRequestConfig } from 'axios';
 import { API_URL } from './config';
+
+declare module 'axios' {
+  interface InternalAxiosRequestConfig {
+    retry?: number;
+  }
+}
 
 const axiosInstance = axios.create({
   baseURL: API_URL,
@@ -7,12 +13,35 @@ const axiosInstance = axios.create({
     'Accept': 'application/json',
     'Content-Type': 'application/json'
   },
-  timeout: 30000 // Increase timeout to 30 seconds
+  timeout: 30000,
+  // Add retry configuration
+  validateStatus: (status) => status < 500 // Treat 500 errors as retryable
+});
+
+// Add retry interceptor
+axiosInstance.interceptors.response.use(undefined, async (err) => {
+  const { config, message } = err;
+  if (!config || !config.retry) {
+    return Promise.reject(err);
+  }
+
+  config.retry -= 1;
+  if (config.retry === 0) {
+    return Promise.reject(err);
+  }
+
+  // Delay before retrying
+  const delay = new Promise(resolve => setTimeout(resolve, 1000));
+  await delay;
+  
+  console.log(`Retrying request to ${config.url}. Attempts remaining: ${config.retry}`);
+  return axiosInstance(config);
 });
 
 // Update request interceptor
 axiosInstance.interceptors.request.use(
   (config) => {
+    config.retry = 3; // Number of retries
     const token = localStorage.getItem('token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;

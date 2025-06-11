@@ -4,8 +4,8 @@ import Calendar from "./components/calendar"
 import { motion } from 'framer-motion';
 import { useEffect, useState } from "react";
 import AddAppointmentForm from './components/AddAppointmentForm'
-
-import { FaCalendarCheck, FaUserMd, FaClock, FaInfoCircle } from 'react-icons/fa'
+import { RDVService } from '@/services/RDVService'
+import { FaCalendarCheck, FaClock, FaInfoCircle } from 'react-icons/fa'
 
 const Loading = () => (
 <div className="min-h-screen flex items-center justify-center bg-gray-100">
@@ -47,14 +47,25 @@ const Loading = () => (
 export default function Home() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [appointmentsCount, setAppointmentsCount] = useState(0);
 
   useEffect(() => {
-    setTimeout(() => {
-      setLoading(false);
-    }, 2000);
+    const loadAppointmentsCount = async () => {
+      try {
+        const appointments = await RDVService.getAllAppointments();
+        setAppointmentsCount(appointments.length);
+      } catch (error) {
+        console.error('Error loading appointments count:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadAppointmentsCount();
   }, []);
 
   if (loading) return <Loading />;
+
   return (
     <div className="min-h-screen bg-gray-50 p-4 flex justify-center items-start text-gray-800">
       <div className="w-full max-w-6xl grid grid-cols-1 md:grid-cols-2 gap-8 bg-white p-6 rounded-2xl shadow-xl">
@@ -63,32 +74,22 @@ export default function Home() {
             <h2 className="text-3xl font-bold text-blue-500">
               Gestion des Rendez-vous
             </h2>
-
           </div>
           <div className="flex justify-end mb-4">
             <button
-                  onClick={() => setShowForm(true)}
-                  className="cursor-pointer bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2"
-                >
-                  <span>+ Nouveau RDV</span>
+              onClick={() => setShowForm(true)}
+              className="cursor-pointer bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2"
+            >
+              <span>+ Nouveau RDV</span>
             </button>
           </div>
           {/* Statistiques */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="p-4 bg-blue-50 rounded-lg">
-              <div className="flex items-center gap-2 text-blue-600">
-                <FaCalendarCheck className="text-xl" />
-                <span className="font-semibold">Aujourd'hui</span>
-              </div>
-              <p className="text-2xl font-bold mt-2">12 RDV</p>
+          <div className="p-4 bg-blue-50 rounded-lg">
+            <div className="flex items-center gap-2 text-blue-600">
+              <FaCalendarCheck className="text-xl" />
+              <span className="font-semibold">Total des rendez-vous</span>
             </div>
-            <div className="p-4 bg-green-50 rounded-lg">
-              <div className="flex items-center gap-2 text-green-600">
-                <FaUserMd className="text-xl" />
-                <span className="font-semibold">Médecins</span>
-              </div>
-              <p className="text-2xl font-bold mt-2">4 Disponibles</p>
-            </div>
+            <p className="text-2xl font-bold mt-2">{appointmentsCount} RDV</p>
           </div>
 
           {/* Info Boxes */}
