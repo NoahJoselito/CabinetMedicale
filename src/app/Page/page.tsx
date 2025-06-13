@@ -93,6 +93,7 @@ interface DashboardData {
     labels: string[];
     data: number[];
   };
+  todayRevenue?: number;
 }
 
 export default function Dashboard() {
@@ -147,7 +148,7 @@ export default function Dashboard() {
       <h1 className="text-gray-600 text-3xl font-bold mb-8">Tableau de Bord</h1>
       
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -178,6 +179,28 @@ export default function Dashboard() {
               <h2 className="text-gray-600 text-sm">Rendez-vous</h2>
               <p className="text-2xl font-bold text-gray-700">
                 {dashboardData.totalAppointments}
+              </p>
+            </div>
+          </div>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          className="bg-white rounded-lg shadow-lg p-6"
+        >
+          <div className="flex items-center">
+            <div className="bg-purple-500 p-3 rounded-full">
+              <FaChartLine className="text-white text-2xl" />
+            </div>
+            <div className="ml-4">
+              <h2 className="text-gray-600 text-sm">Chiffre d'affaires du jour</h2>
+              <p className="text-2xl font-bold text-gray-700">
+                {new Intl.NumberFormat('fr-FR', {
+                  style: 'currency',
+                  currency: 'MGA'
+                }).format(dashboardData.dailyRevenue.data[new Date().getDate() - 1] || 0)}
               </p>
             </div>
           </div>
@@ -306,11 +329,11 @@ export default function Dashboard() {
                 {
                   label: 'Chiffre d\'affaires (Ar)',
                   data: dashboardData.revenue?.data || [],
-                  backgroundColor: 'rgba(34, 151, 197, 0.6)', // Plus vif
-                  borderColor: 'rgba(34, 151, 197, 0.6)',          // Vert plus prononcé
-                  borderWidth: 2,                           // Bordure plus épaisse
-                  borderRadius: 6,                          // Coins arrondis
-                  barThickness: 32,                         // Largeur des barres
+                  backgroundColor: 'rgba(34, 151, 197, 0.6)',
+                  borderColor: 'rgba(34, 151, 197, 0.6)',
+                  borderWidth: 2,
+                  borderRadius: 6,
+                  barThickness: 32,
                 }
               ]
             }}
@@ -318,16 +341,23 @@ export default function Dashboard() {
               responsive: true,
               maintainAspectRatio: false,
               devicePixelRatio: 2,
-              onHover: (event, chartElement) => {
-                if (event.native?.target) {
-                  (event.native.target as HTMLElement).style.cursor = chartElement[0] ? 'pointer' : 'default';
-                }
-              },
               plugins: {
                 tooltip: {
-                  enabled: true,
-                  mode: 'index',
-                  intersect: false,
+                  callbacks: {
+                    label: function(context) {
+                      let label = context.dataset.label || '';
+                      if (label) {
+                        label += ': ';
+                      }
+                      if (context.parsed.y !== null) {
+                        label += new Intl.NumberFormat('fr-FR', {
+                          style: 'currency',
+                          currency: 'MGA'
+                        }).format(context.parsed.y);
+                      }
+                      return label;
+                    }
+                  }
                 },
                 legend: {
                   position: 'top',

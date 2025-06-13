@@ -111,8 +111,8 @@ export default function DossierMedical() {
   const totalPages = Math.ceil(filteredConsultations.length / itemsPerPage);
 
   const [currentPatient, setCurrentPatient] = useState<{
-    payementrestant(payementrestant: any): unknown;
-    montantPaye(montantPaye: any): unknown;
+    payementrestant: number;
+    montantPaye: number;
     id: number;
     name: string;
     seance: string;
@@ -137,6 +137,7 @@ export default function DossierMedical() {
   const [validateAllSeances, setValidateAllSeances] = useState(false);
   const [numeroDossier, setNumeroDossier] = useState('');
   const [organisme, setOrganisme] = useState('');
+  const [showPriseEnChargeModal, setShowPriseEnChargeModal] = useState(false);
   
   // Function to change page
   const paginate = (pageNumber: number) => setCurrentPage(pageNumber);
@@ -152,15 +153,14 @@ export default function DossierMedical() {
               paid: consultation.statuspaiement === 'Payé',
               seanceCount: consultation.nb_seances,
               completedSeances: consultation.nb_seances - (consultation.seancerestant || 0),
-              payementrestant: () => consultation.payementrestant,
-              montantPaye: () => consultation.montantPaye
+              payementrestant: Number(consultation.payementrestant),
+              montantPaye: Number(consultation.montantPaye)
             });
     } else {
       setCurrentPatient(null);
     }
     setShowSeanceModal(true);
   };
-
   const handlePaymentValidation = (id: number) => {
     const consultation = consultations.find(p => p.id === id);
     if (consultation) {
@@ -172,16 +172,15 @@ export default function DossierMedical() {
         paid: consultation.statuspaiement === 'Payé',
         seanceCount: consultation.seanceCount || 0,
         completedSeances: consultation.completedSeances || 0,
-        payementrestant: () => consultation.payementrestant,
-        montantPaye: () => consultation.montantPaye
+        payementrestant: Number(consultation.payementrestant),
+        montantPaye: Number(consultation.montantPaye)
       });
     } else {
       setCurrentPatient(null);
     }
     setPaymentMethod('cash');
     setShowPaymentModal(true);
-  };
-  const confirmSeance = async () => {
+  };  const confirmSeance = async () => {
     if (currentPatient) {
       setIsValidating(true);
       try {
@@ -222,94 +221,123 @@ export default function DossierMedical() {
   const proceedToPaymentDetails = () => {
     setShowPaymentModal(false);
     
-    if (paymentMethod === 'cash') {
-      setCashAmount(currentPatient?.amount.toString() || '');
-      setShowCashModal(true);
-    } else if (paymentMethod === 'card') {
-      setCardNumber('');
-      setCardExpiry('');
-      setCardCVC('');
-      setShowCardModal(true);
-    } else if (paymentMethod === 'mobile') {
-      setMobileNumber('');
-      setMobileCode('');
-      setShowMobileModal(true);
+    switch (paymentMethod) {
+      case 'cash':
+        setCashAmount(currentPatient?.payementrestant?.toString() || '');
+        setShowCashModal(true);
+        break;
+      case 'mobile':
+        setMobileNumber('');
+        setShowMobileModal(true);
+        break;
+      case 'prisencharge':
+        setNumeroDossier('');
+        setOrganisme('');
+        setShowPriseEnChargeModal(true);
+        break;
     }
-  };
+};
 
   const confirmPayment = async () => {
     if (!currentPatient) return;
 
     setIsProcessingPayment(true);
     try {
+      // Validate payment amount first
+      const montantPaiement = paymentMethod === 'cash' && cashAmount
+        ? Number(cashAmount)
+        : Number(currentPatient.payementrestant);
+
+      if (montantPaiement <= 0) {
+        toast.error('Montant de paiement invalide');
+        return;
+      }
+
+      if (montantPaiement > Number(currentPatient.payementrestant)) {
+        toast.error('Le montant ne peut pas dépasser le montant restant');
+        return;
+      }
+
+      // Prepare payment data
       const paymentData: PaymentRequest = {
         consultation_id: currentPatient.id,
-        montant: cashAmount || String(currentPatient.amount), // Utiliser le montant saisi
+        montant: montantPaiement.toFixed(2),
         date_paiement: new Date().toISOString().split('T')[0],
-        type: paymentMethod === 'mobile' ? 'mobilemoney' : 
-              paymentMethod === 'cash' ? 'espece' : 'prisencharge'
+        type: paymentMethod === 'cash' ? 'espece' : 
+              paymentMethod === 'mobile' ? 'mobilemoney' : 'prisencharge',
+        ...(paymentMethod === 'mobile' && { numero_mobile: mobileNumber }),
+        ...(paymentMethod === 'prisencharge' && {
+          numero_dossier: numeroDossier,
+          organisme: organisme
+        })
       };
 
-      // Ajouter les détails spécifiques selon le mode de paiement
-      if (paymentMethod === 'mobile' && mobileNumber) {
-        paymentData.numero_mobile = mobileNumber;
-      } else if (paymentMethod === 'prisencharge') {
-        paymentData.numero_dossier = numeroDossier;
-        paymentData.organisme = organisme;
+      console.log('[UI] Processing payment:', paymentData);
+
+      // Process payment
+      const response = await consultService.makePayment(paymentData);
+      
+      console.log('[UI] Payment successful:', response);
+
+      // Show success message
+      toast.success(`Paiement de ${montantPaiement.toLocaleString()} Ar effectué avec succès`);
+      
+      // Check remaining amount
+      const remainingAmount = response["Reste à payer"];
+      if (remainingAmount <= 0) {
+        toast.success('Consultation entièrement réglée !');
+      } else {
+        toast.info(`Reste à payer: ${remainingAmount.toLocaleString()} Ar`);
       }
 
-      console.log('Sending payment request:', paymentData);
-
-      try {
-        const response = await consultService.makePayment(paymentData);
-        console.log('Payment successful:', response);
-
-        // Mise à jour immédiate du statut et du montant restant
-        setConsultations(prevConsultations => 
-          prevConsultations.map(consultation => {
-            if (consultation.id === currentPatient.id) {
-              return {
-                ...consultation,
-                statuspaiement: response["Reste à payer"] <= 0 ? 'Payé' : 'En cours',
-                payementrestant: response["Reste à payer"],
-                total: consultation.total // Garder le montant total original
-              };
-            }
-            return consultation;
-          })
-        );
-
-        // Message de succès
-        if (response["Reste à payer"] > 0) {
-          toast.info(`Paiement partiel effectué. Reste à payer: ${response["Reste à payer"]} Ar`);
-        } else {
-          toast.success('Paiement effectué avec succès');
-        }
-
-        // Rafraîchir les données
-        await refreshConsultations();
-        resetPaymentForms();
-
-      } catch (error: any) {
-        console.error('Payment failed:', error);
-        toast.error(error.message || 'Erreur lors du paiement');
-      }
+      // Refresh consultations
+      await refreshConsultations();
+      
+      // Reset forms
+      resetPaymentForms();
 
     } catch (error: any) {
-      console.error('Payment error:', error);
-      toast.error('Erreur lors du paiement. Veuillez réessayer.');
+      console.error('[UI] Payment error:', error);
+      
+      // Show specific error message
+      if (error.message.includes('validation')) {
+        toast.error('Données de paiement invalides. Vérifiez les informations saisies.');
+      } else if (error.message.includes('non trouvée')) {
+        toast.error('Consultation non trouvée. Veuillez actualiser la page.');
+      } else if (error.message.includes('serveur')) {
+        toast.error('Problème de connexion. Veuillez réessayer.');
+      } else {
+        toast.error(error.message || 'Erreur lors du paiement');
+      }
     } finally {
       setIsProcessingPayment(false);
     }
   };
-
   // Ajouter cette fonction pour rafraîchir les consultations
   const refreshConsultations = async () => {
     try {
       const data = await consultService.getConsultations();
-      setConsultations(data.consultations);
+      // Force refresh of payment status for each consultation
+      const updatedConsultations = await Promise.all(
+        data.consultations.map(async (consultation) => {
+          const remaining = await consultService.getPaymentRemaining(consultation.id);
+          const payementrestant = Number(remaining.payementrestant);
+          const montantPaye = Number(consultation.total) - payementrestant;
+            
+          return {
+            ...consultation,
+            payementrestant,
+            montantPaye,
+            total: Number(consultation.total),
+            seancerestant: Number(consultation.seancerestant || 0),
+            statuspaiement: payementrestant <= 0 ? 'Payé' : 'En cours'
+          } as unknown as ConsultationResponse;
+        })
+      );
+      setConsultations(updatedConsultations);
     } catch (error) {
       console.error('Failed to refresh consultations:', error);
+      toast.error('Erreur lors du rafraîchissement des données');
     }
   };
 
@@ -318,6 +346,7 @@ export default function DossierMedical() {
     setShowCashModal(false);
     setShowCardModal(false);
     setShowMobileModal(false);
+    setShowPriseEnChargeModal(false);
     setShowPaymentModal(false);
     setCurrentPatient(null);
     setCashAmount('');
@@ -442,7 +471,7 @@ export default function DossierMedical() {
                           consultation.statuspaiement === 'Payé' 
                             ? 'bg-green-200 text-green-700' 
                             : consultation.payementrestant > 0
-                              ? 'bg-yellow-200 text-yellow-700'
+                              ? 'bg-red-200 text-red-700'
                               : 'bg-red-200 text-red-700'
                         }`}>
                           {consultation.statuspaiement}
@@ -687,7 +716,7 @@ export default function DossierMedical() {
               <p><span className="font-medium">Traitement:</span> {currentPatient.seance}</p>
               <p><span className="font-medium">Montant total:</span> {currentPatient.amount.toLocaleString()} Ar</p>
               <p><span className="font-medium">Déjà payé:</span> {Number(currentPatient.montantPaye).toLocaleString()} Ar</p>
-              <p><span className="font-medium">Reste à payer:</span> {Number(currentPatient.payementrestant).toLocaleString()} Ar</p>
+              <p><span className="font-medium text-red-600">Reste à payer:</span> {Number(currentPatient.payementrestant).toLocaleString()} Ar</p>
             </div>
             
             <div className="mb-4 p-3 bg-blue-50 rounded-lg">
@@ -756,10 +785,12 @@ export default function DossierMedical() {
             <div className="mb-4">
               <p><span className="font-medium">Patient:</span> {currentPatient.name}</p>
               <p><span className="font-medium">Montant total:</span> {currentPatient.amount.toLocaleString()} Ar</p>
+              <p><span className="font-medium">Déjà payé:</span> {Number(currentPatient.montantPaye).toLocaleString()} Ar</p>
+              <p><span className="font-medium text-red-600">Reste à payer:</span> {Number(currentPatient.payementrestant).toLocaleString()} Ar</p>
               {cashAmount && (
                 <div className="mt-2 space-y-1">
                   <p><span className="font-medium">Montant saisi:</span> {parseFloat(cashAmount).toLocaleString()} Ar</p>
-                  <p><span className="font-medium">Reste à payer:</span> <span className="text-blue-600">{Math.max(0, currentPatient.amount - parseFloat(cashAmount)).toLocaleString()} Ar</span></p>
+                  <p><span className="font-medium">Nouveau reste:</span> <span className="text-blue-600">{Math.max(0, Number(currentPatient.payementrestant) - parseFloat(cashAmount)).toLocaleString()} Ar</span></p>
                 </div>
               )}
             </div>
@@ -774,14 +805,18 @@ export default function DossierMedical() {
                 onChange={(e) => setCashAmount(e.target.value)}
                 className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="Entrez le montant reçu"
+                max={currentPatient.payementrestant}
               />
+              <p className="text-xs text-gray-500 mt-1">
+                Montant maximum: {Number(currentPatient.payementrestant).toLocaleString()} Ar
+              </p>
             </div>
             
-            {parseFloat(cashAmount) > currentPatient.amount && (
-              <div className="mb-4 p-3 bg-blue-50 rounded-lg">
-                <p className="font-medium text-blue-700">Monnaie à rendre:</p>
-                <p className="text-xl font-bold text-blue-700">
-                  {(parseFloat(cashAmount) - currentPatient.amount).toLocaleString()} Ar
+            {parseFloat(cashAmount) > Number(currentPatient.payementrestant) && (
+              <div className="mb-4 p-3 bg-yellow-50 rounded-lg">
+                <p className="font-medium text-yellow-700">Attention:</p>
+                <p className="text-yellow-700">
+                  Le montant saisi dépasse le montant restant à payer.
                 </p>
               </div>
             )}
@@ -798,9 +833,9 @@ export default function DossierMedical() {
                 </button>
                 <button 
                   onClick={confirmPayment}
-                  disabled={!cashAmount}
+                  disabled={!cashAmount || parseFloat(cashAmount) <= 0 || isProcessingPayment}
                   className={`px-4 py-2 rounded-md flex items-center justify-center ${
-                    isProcessingPayment || !cashAmount
+                    isProcessingPayment || !cashAmount || parseFloat(cashAmount) <= 0
                       ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                       : 'bg-green-500 text-white hover:bg-green-600 cursor-pointer'
                   }`}
@@ -926,12 +961,12 @@ export default function DossierMedical() {
               
               <div className="mb-4">
                 <p><span className="font-medium">Patient:</span> {currentPatient.name}</p>
-                <p><span className="font-medium">Montant à payer:</span> {currentPatient.amount.toLocaleString()} Ar</p>
+                <p><span className="font-medium">Montant à payer:</span> {Number(currentPatient.payementrestant).toLocaleString()} Ar</p>
               </div>
               
               <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Numéro de téléphone
+                  Numéro de téléphone *
                 </label>
                 <input 
                   type="text" 
@@ -941,11 +976,14 @@ export default function DossierMedical() {
                   placeholder="Entrez le numéro de téléphone"
                   maxLength={10}
                 />
+                <p className="text-xs text-gray-500 mt-1">
+                  Format: 10 chiffres (ex: 0341234567)
+                </p>
               </div>
               
               <div className="mb-4 p-3 bg-blue-50 rounded-lg">
                 <p className="text-sm text-blue-700">
-                  <span className="font-medium">Instructions:</span> Veuillez effectuer le paiement via votre application Mobile Money, puis entrez le code de confirmation reçu par SMS.
+                  <span className="font-medium">Instructions:</span> Le paiement de {Number(currentPatient.payementrestant).toLocaleString()} Ar sera effectué via Mobile Money sur le numéro {mobileNumber}.
                 </p>
               </div>
               
@@ -961,14 +999,107 @@ export default function DossierMedical() {
                 </button>
                 <button 
                   onClick={confirmPayment}
-                  disabled={!mobileNumber || mobileNumber.length < 10 }
-                  className={`px-4 py-2 rounded-md ${
-                    !mobileNumber || mobileNumber.length < 10
+                  disabled={!mobileNumber || mobileNumber.length < 10 || isProcessingPayment}
+                  className={`px-4 py-2 rounded-md flex items-center justify-center ${
+                    !mobileNumber || mobileNumber.length < 10 || isProcessingPayment
                       ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                       : 'bg-green-500 text-white hover:bg-green-600 cursor-pointer'
                   }`}
                 >
-                  Confirmer le paiement
+                  {isProcessingPayment ? (
+                    <>
+                      <motion.div 
+                        className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full mr-2"
+                        animate={{ rotate: 360 }}
+                        transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                      />
+                      <span>Traitement en cours...</span>
+                    </>
+                  ) : (
+                    'Confirmer le paiement'
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* NOUVEAU Modal pour prise en charge */}
+        {showPriseEnChargeModal && currentPatient && (
+          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+            <div className="bg-white text-gray-500 rounded-lg p-6 w-full max-w-md">
+              <h3 className="text-lg font-semibold mb-4">Prise en charge</h3>
+              
+              <div className="mb-4">
+                <p><span className="font-medium">Patient:</span> {currentPatient.name}</p>
+                <p><span className="font-medium">Montant à prendre en charge:</span> {Number(currentPatient.payementrestant).toLocaleString()} Ar</p>
+              </div>
+              
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Numéro de dossier *
+                </label>
+                <input 
+                  type="text" 
+                  value={numeroDossier}
+                  onChange={(e) => setNumeroDossier(e.target.value)}
+                  className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Entrez le numéro de dossier"
+                  required
+                />
+              </div>
+
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Organisme *
+                </label>
+                <input 
+                  type="text" 
+                  value={organisme}
+                  onChange={(e) => setOrganisme(e.target.value)}
+                  className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Nom de l'organisme"
+                  required
+                />
+              </div>
+              
+              <div className="mb-4 p-3 bg-blue-50 rounded-lg">
+                <p className="text-sm text-blue-700">
+                  <span className="font-medium">Information:</span> Cette prise en charge sera enregistrée pour le montant restant à payer.
+                </p>
+              </div>
+              
+              <div className="flex justify-end space-x-3">
+                <button 
+                  onClick={() => {
+                    setShowPriseEnChargeModal(false);
+                    setShowPaymentModal(true);
+                  }}
+                  className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 cursor-pointer"
+                >
+                  Retour
+                </button>
+                <button 
+                  onClick={confirmPayment}
+                  disabled={!numeroDossier || !organisme || isProcessingPayment}
+                  className={`px-4 py-2 rounded-md flex items-center justify-center ${
+                    isProcessingPayment || !numeroDossier || !organisme
+                      ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                      : 'bg-green-500 text-white hover:bg-green-600 cursor-pointer'
+                  }`}
+                >
+                  {isProcessingPayment ? (
+                    <>
+                      <motion.div 
+                        className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full mr-2"
+                        animate={{ rotate: 360 }}
+                        transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                      />
+                      <span>Traitement en cours...</span>
+                    </>
+                  ) : (
+                    'Confirmer la prise en charge'
+                  )}
                 </button>
               </div>
             </div>

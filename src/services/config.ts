@@ -39,7 +39,12 @@ export const ENDPOINTS = {
     PRODUCTS: '/stocks',              // Updated path to match backend
     VALIDATE_SEANCE: '/consultations/addseance',
     PAYMENTS: '/payments',
-    PAYMENT_REMAINING: (id: number) => `/payments/restant/${id}`,
+    PAYMENT: {
+      CREATE: '/payments',
+      VERIFY:  `/payments`,
+      REMAINING: (id: number) => `/payments/restant/${id}`,
+      STATUS: `/payments`,
+    },
   },
   APPOINTMENTS: {
     CREATE: '/rendezvous',

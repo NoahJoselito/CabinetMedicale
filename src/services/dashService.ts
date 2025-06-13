@@ -76,65 +76,32 @@ export const getDashboardData = async () => {
       }));
 
     // Process monthly revenue data
-    const monthNames = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc'];
     const monthlyData = revenueMonthlyResponse.data;
     console.log('Raw Monthly Revenue:', monthlyData);
 
     const revenueData = {
-      labels: monthNames,
-      data: monthNames.map((_, index) => {
-        if (!monthlyData) return 0;
-        
-        // Si les données sont un tableau d'objets avec month et total
-        if (Array.isArray(monthlyData)) {
-          const found = monthlyData.find(item => {
-            const itemMonth = new Date(item.month).getMonth();
-            return itemMonth === index;
-          });
-          return found ? parseFloat(found.total) || 0 : 0;
-        }
-        
-        // Si les données sont un objet avec les mois comme clés
-        if (typeof monthlyData === 'object') {
-          const monthKey = (index + 1).toString().padStart(2, '0');
-          return parseFloat(monthlyData[monthKey]) || 0;
-        }
-        
-        return 0;
-      })
+      labels: monthlyData.labels || [],
+      data: monthlyData.data.map((value: string | number) => 
+        typeof value === 'string' ? parseFloat(value) : value || 0
+      )
     };
 
     // Process daily revenue data
-    const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
     const dailyData = revenueDailyResponse.data;
     console.log('Raw Daily Revenue:', dailyData);
 
+    const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
     const dailyRevenueData = {
-      labels: Array.from({ length: daysInMonth }, (_, i) => `${i + 1}`),
-      data: Array.from({ length: daysInMonth }, (_, index) => {
-        if (!dailyData) return 0;
-
-        // Si les données sont un tableau d'objets avec date et total
-        if (Array.isArray(dailyData)) {
-          const found = dailyData.find(item => {
-            const itemDay = new Date(item.date).getDate();
-            return itemDay === index + 1;
-          });
-          return found ? parseFloat(found.total) || 0 : 0;
-        }
-
-        // Si les données sont un objet avec les jours comme clés
-        if (typeof dailyData === 'object') {
-          const dayKey = (index + 1).toString().padStart(2, '0');
-          return parseFloat(dailyData[dayKey]) || 0;
-        }
-
-        return 0;
-      })
+      labels: dailyData.labels || Array.from({ length: daysInMonth }, (_, i) => `${i + 1}`),
+      data: (dailyData.data || Array(daysInMonth).fill(0)).map((value: any) => 
+        typeof value === 'string' ? parseFloat(value) || 0 : value || 0
+      )
     };
 
-    console.log('Processed Monthly Revenue:', revenueData);
-    console.log('Processed Daily Revenue:', dailyRevenueData);
+    const today = new Date().getDate();
+    const todayRevenue = dailyRevenueData.data[today - 1] || 0;
+
+    console.log('Today\'s Revenue:', todayRevenue);
 
     return {
       patients: recentPatients,
@@ -142,7 +109,8 @@ export const getDashboardData = async () => {
       totalAppointments: allAppointments.length,
       recentAppointments: todayAppointments.slice(0, 5),
       revenue: revenueData,
-      dailyRevenue: dailyRevenueData
+      dailyRevenue: dailyRevenueData,
+      todayRevenue
     };
   } catch (error) {
     console.error('Error fetching dashboard data:', error);

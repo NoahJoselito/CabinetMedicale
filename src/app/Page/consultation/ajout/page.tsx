@@ -299,7 +299,7 @@ const ConsultationAjoutPage: React.FC = () => {
           setSelectedPatient(null);
           setSearchTerm('');
           
-          router.push('/consultation');
+          router.push('/Page/consultation/ajout');
           router.refresh();
         }
       });

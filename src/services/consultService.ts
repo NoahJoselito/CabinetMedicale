@@ -173,16 +173,18 @@ export interface ConsultationResponse {
   }>;
 }
 
+// Mise à jour de l'interface PaymentRequest pour inclure tous les champs
 export interface PaymentRequest {
   consultation_id: number;
   montant: string;
-  type: 'espece' | 'mobilemoney' | 'prisencharge';
   date_paiement: string;
+  type: 'espece' | 'mobilemoney' | 'prisencharge';
   numero_mobile?: string;
   numero_dossier?: string;
   organisme?: string;
 }
 
+// Interface pour la réponse de paiement
 export interface PaymentResponse {
   Message: string;
   consultation: {
@@ -461,74 +463,150 @@ export const consultService = {
   },
   makePayment: async (paymentData: PaymentRequest): Promise<PaymentResponse> => {
     try {
-      // Log de débogage
-      console.log('Making payment with data:', paymentData);
+      // Validate payment data
+      if (!paymentData.consultation_id) {
+        throw new Error('ID de consultation manquant');
+      }
+      if (!paymentData.montant || isNaN(Number(paymentData.montant)) || Number(paymentData.montant) <= 0) {
+        throw new Error('Montant de paiement invalide');
+      }
+      if (!paymentData.date_paiement) {
+        throw new Error('Date de paiement manquante');
+      }
+      if (!paymentData.type) {
+        throw new Error('Type de paiement manquant');
+      }
 
-      // Formater correctement les données
-      const formattedPayment = {
-        consultation_id: paymentData.consultation_id,
-        montant: paymentData.montant,
-        date_paiement: paymentData.date_paiement,
-        type: paymentData.type,
-        ...(paymentData.type === 'mobilemoney' && { numero_mobile: paymentData.numero_mobile }),
-        ...(paymentData.type === 'prisencharge' && {
-          numero_dossier: paymentData.numero_dossier,
-          organisme: paymentData.organisme
-        })
-      };
+      // Type-specific validations
+      if (paymentData.type === 'mobilemoney' && !paymentData.numero_mobile) {
+        throw new Error('Numéro de téléphone mobile requis pour le paiement mobile');
+      }
+      if (paymentData.type === 'prisencharge') {
+        if (!paymentData.numero_dossier) {
+          throw new Error('Numéro de dossier requis pour la prise en charge');
+        }
+        if (!paymentData.organisme) {
+          throw new Error('Organisme requis pour la prise en charge');
+        }
+      }
 
-      // Log des données formatées
-      console.log('Formatted payment data:', formattedPayment);
+      // Continue with payment processing
+      console.log('[Payment] Starting payment process:', paymentData);
 
+      // Get initial remaining amount
+      const initialResponse = await axiosInstance.get(
+        ENDPOINTS.CONSULTATIONS.PAYMENT.REMAINING(paymentData.consultation_id)
+      );
+
+      const initialAmount = Number(initialResponse.data.payementrestant);
+      const paymentAmount = Number(paymentData.montant);
+
+      console.log('[Payment] Initial state:', { initialAmount, paymentAmount });
+
+      // Validate payment amount
+      if (paymentAmount <= 0) {
+        throw new Error('Le montant du paiement doit être supérieur à 0');
+      }
+
+      if (paymentAmount > initialAmount) {
+        throw new Error('Le montant du paiement ne peut pas dépasser le montant restant');
+      }
+
+      // Make the payment request
       const response = await axiosInstance.post(
-        ENDPOINTS.CONSULTATIONS.PAYMENTS,
-        formattedPayment,
+        ENDPOINTS.CONSULTATIONS.PAYMENT.CREATE,
         {
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-          },
-          timeout: 10000 // 10 secondes de timeout
+          consultation_id: paymentData.consultation_id,
+          montant: paymentAmount.toString(),
+          date_paiement: paymentData.date_paiement,
+          type: paymentData.type,
+          ...(paymentData.type === 'mobilemoney' && { 
+            numero_mobile: paymentData.numero_mobile 
+          }),
+          ...(paymentData.type === 'prisencharge' && {
+            numero_dossier: paymentData.numero_dossier,
+            organisme: paymentData.organisme
+          })
         }
       );
 
-      // Log de la réponse
-      console.log('Payment response:', response);
+      console.log('[Payment] Payment response:', response.data);
 
-      if (!response.data) {
-        throw new Error('Réponse vide du serveur');
-      }
-
-      return response.data;
-    } catch (error: any) {
-      // Log détaillé de l'erreur
-      console.error('Payment error details:', {
-        message: error.message,
-        response: error.response?.data,
-        status: error.response?.status,
-        headers: error.response?.headers,
-        requestData: paymentData
-      });
-
-      if (error.response) {
-        throw {
-          message: error.response.data?.message || 'Erreur lors du paiement',
-          status: error.response.status,
-          data: error.response.data
+      // If we have a successful response, return it immediately
+      if (response.data && response.status === 200) {
+        // Calculate expected remaining amount
+        const expectedRemaining = Math.max(0, initialAmount - paymentAmount);
+        
+        return {
+          Message: response.data.Message || 'Paiement effectué avec succès',
+          consultation: response.data.consultation || {
+            consultation_id: paymentData.consultation_id,
+            montant: paymentAmount,
+            date_paiement: paymentData.date_paiement,
+            type: paymentData.type,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            id: response.data.id || Date.now()
+          },
+          "Reste à payer": response.data["Reste à payer"] !== undefined 
+            ? response.data["Reste à payer"] 
+            : expectedRemaining
         };
       }
 
-      throw new Error('Erreur de connexion au serveur');
+      throw new Error('Réponse invalide du serveur');
+
+    } catch (error: any) {
+      console.error('[Payment] Error:', error);
+      
+      // Handle specific error cases
+      if (error.response?.status === 422) {
+        const validationErrors = error.response.data?.errors;
+        if (validationErrors) {
+          const errorMessages = Object.values(validationErrors).flat().join(', ');
+          throw new Error(`Erreur de validation: ${errorMessages}`);
+        }
+      }
+      
+      if (error.response?.status === 404) {
+        throw new Error('Consultation non trouvée');
+      }
+      
+      if (error.response?.status === 500) {
+        throw new Error('Erreur serveur. Veuillez réessayer plus tard.');
+      }
+
+      // Return the original error message or a generic one
+      throw new Error(
+        error.response?.data?.message || 
+        error.message || 
+        'Une erreur est survenue lors du paiement'
+      );
     }
   },
+
   getPaymentRemaining: async (consultationId: number): Promise<PaymentRemaining> => {
     try {
+      const timestamp = Date.now();
       const response = await axiosInstance.get(
-        ENDPOINTS.CONSULTATIONS.PAYMENT_REMAINING(consultationId)
+        `${ENDPOINTS.CONSULTATIONS.PAYMENT.REMAINING(consultationId)}?timestamp=${timestamp}`,
+        {
+          headers: {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0'
+          }
+        }
       );
-      return response.data;
+
+      const remaining = Number(response.data.payementrestant);
+      console.log(`[Payment] Consultation ${consultationId} - Montant restant:`, remaining);
+      
+      return {
+        payementrestant: remaining
+      };
     } catch (error) {
-      console.error('Error fetching remaining payment:', error);
+      console.error('Erreur lors de la récupération du montant restant:', error);
       throw error;
     }
   },

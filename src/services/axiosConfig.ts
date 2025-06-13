@@ -11,10 +11,12 @@ const axiosInstance = axios.create({
   baseURL: API_URL,
   headers: {
     'Accept': 'application/json',
-    'Content-Type': 'application/json'
+    'Content-Type': 'application/json',
+    'Cache-Control': 'no-cache',
+    'Pragma': 'no-cache'
   },
   timeout: 30000,
-  // Add retry configuration
+  // Add response caching control
   validateStatus: (status) => status < 500 // Treat 500 errors as retryable
 });
 
@@ -38,10 +40,32 @@ axiosInstance.interceptors.response.use(undefined, async (err) => {
   return axiosInstance(config);
 });
 
-// Update request interceptor
+// Add payment endpoints to retry configuration
+const PAYMENT_ENDPOINTS = ['/payments', '/payments/restant'];
+
+const PAYMENT_CONFIG = {
+  timeout: 30000,
+  headers: {
+    'Cache-Control': 'no-cache',
+    'Pragma': 'no-cache'
+  }
+};
+
 axiosInstance.interceptors.request.use(
   (config) => {
-    config.retry = 3; // Number of retries
+    // Add more retries for payment endpoints
+    if (PAYMENT_ENDPOINTS.some(endpoint => config.url?.includes(endpoint))) {
+      config.retry = 5; // More retries for payments
+      config.timeout = 60000; // Longer timeout
+    } else {
+      config.retry = 3;
+    }
+    
+    if (config.url?.includes('/payments')) {
+      config.timeout = PAYMENT_CONFIG.timeout;
+      Object.assign(config.headers, PAYMENT_CONFIG.headers);
+    }
+
     const token = localStorage.getItem('token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
