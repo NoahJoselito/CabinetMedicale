@@ -322,7 +322,7 @@ const Calendar = () => {
                 {selectedDateAppointments.length > 0 ? (
                   selectedDateAppointments.map(apt => (
                     <div key={apt.id} className="p-4 hover:bg-gray-50 transition-colors">
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                         <div>
                           <span className="text-gray-500 text-sm">Heure</span>
                           <p className="font-semibold">{apt.heure}</p>
@@ -336,12 +336,6 @@ const Calendar = () => {
                           <p className="font-semibold">{apt.service?.nom || ''}</p>
                         </div>
                         <div className="flex items-center justify-end">
-                          <button 
-                            onClick={() => handleViewDetails(apt.id)}
-                            className="text-blue-500 hover:text-blue-600 cursor-pointer"
-                          >
-                            Voir détails
-                          </button>
                         </div>
                       </div>
                     </div>
