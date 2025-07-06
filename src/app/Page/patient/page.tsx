@@ -301,7 +301,12 @@ const MyComponent = () => {
         }
       } else {
         try {
-          const response = await patientService.createPatient(patientPayload);
+          // Passer le mot de passe généré pour l'envoi par email
+          const response = await patientService.createPatient({
+            ...patientPayload,
+            password: randomPassword,
+            password_confirmation: randomPassword
+          });
           if (response) {
             toast.success('Nouveau patient ajouté avec succès !', {
               position: "top-right",

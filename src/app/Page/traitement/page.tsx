@@ -266,7 +266,7 @@ export default function DossierMedical() {
   if (loading) { return <Loading />;}
   
   return (
-    <div className="p-6 h-screen bg-gray-100">
+    <div className="p-6 w-full  bg-gray-100">
       <ToastContainer
         position="top-right"
         autoClose={3000}

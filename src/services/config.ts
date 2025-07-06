@@ -4,7 +4,8 @@ export const ENDPOINTS = {
   AUTH: {
     LOGIN: '/login',
     LOGOUT: '/logout',
-    REGISTER: '/register'
+    REGISTER: '/register',
+    CHECKUSER: '/checkuser' // Ajoutez /api ici si la base URL n'a pas /api
   },
   DOCTORS: '/doctors',
   SERVICES: '/services',
@@ -58,6 +59,7 @@ export const ENDPOINTS = {
     RECENT_PATIENTS: '/dashboard/patients/recents',
     REVENUE_MONTHLY: (year: number) => `/dashboard/revenue-monthly?year=${year}`,
     REVENUE_DAILY: (year: number, month: number) => `/dashboard/revenue-daily?year=${year}&month=${month}`,
+    TOTAL_PATIENT: '/dashboard/totalpatient', // Ajouté pour le total des patients
   }
 };
 

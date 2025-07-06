@@ -81,6 +81,7 @@ interface Appointment {
   service: string | Service;
 }
 
+// Mise à jour de l'interface DashboardData
 interface DashboardData {
   patients: Patient[];
   appointments: Appointment[];
@@ -94,6 +95,7 @@ interface DashboardData {
     data: number[];
   };
   todayRevenue?: number;
+  totalPatients?: number; // Ajouté
 }
 
 export default function Dashboard() {
@@ -109,7 +111,8 @@ export default function Dashboard() {
     dailyRevenue: {
       labels: [],
       data: []
-    }
+    },
+    totalPatients: 0 // Ajouté
   });
 
   useEffect(() => {
@@ -123,7 +126,8 @@ export default function Dashboard() {
           appointments: data.appointments,
           totalAppointments: data.totalAppointments,
           revenue: data.revenue,
-          dailyRevenue: data.dailyRevenue
+          dailyRevenue: data.dailyRevenue,
+          totalPatients: data.totalPatients // Ajouté
         });
         
         console.log('Dashboard State Updated:', {
@@ -132,7 +136,7 @@ export default function Dashboard() {
         });
       } catch (error) {
         console.error('Error loading dashboard:', error);
-        setDashboardData({ patients: [], appointments: [], totalAppointments: 0, revenue: { labels: [], data: [] }, dailyRevenue: { labels: [], data: [] } });
+        setDashboardData({ patients: [], appointments: [], totalAppointments: 0, revenue: { labels: [], data: [] }, dailyRevenue: { labels: [], data: [] }, totalPatients: 0 });
       } finally {
         setLoading(false);
       }
@@ -149,6 +153,7 @@ export default function Dashboard() {
       
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        {/* Carte Total Patients */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -160,11 +165,14 @@ export default function Dashboard() {
             </div>
             <div className="ml-4">
               <h2 className="text-gray-600 text-sm">Total Patients</h2>
-              <p className="text-2xl font-bold text-gray-700">{dashboardData.patients.length}</p>
+              <p className="text-2xl font-bold text-gray-700">
+                {dashboardData.totalPatients ?? 0}
+              </p>
             </div>
           </div>
         </motion.div>
 
+        {/* Carte Rendez-vous */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -184,6 +192,7 @@ export default function Dashboard() {
           </div>
         </motion.div>
 
+        {/* Carte Chiffre d'affaires du mois */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -195,12 +204,16 @@ export default function Dashboard() {
               <FaChartLine className="text-white text-2xl" />
             </div>
             <div className="ml-4">
-              <h2 className="text-gray-600 text-sm">Chiffre d'affaires du jour</h2>
+              <h2 className="text-gray-600 text-sm">Chiffre d'affaires du mois</h2>
               <p className="text-2xl font-bold text-gray-700">
-                {new Intl.NumberFormat('fr-FR', {
-                  style: 'currency',
-                  currency: 'MGA'
-                }).format(dashboardData.dailyRevenue.data[new Date().getDate() - 1] || 0)}
+                {
+                  new Intl.NumberFormat('fr-FR', {
+                    style: 'currency',
+                    currency: 'MGA'
+                  }).format(
+                    dashboardData.revenue.data[new Date().getMonth()] || 0
+                  )
+                }
               </p>
             </div>
           </div>

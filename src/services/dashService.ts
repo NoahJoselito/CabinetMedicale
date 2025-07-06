@@ -7,11 +7,19 @@ export const getDashboardData = async () => {
     const currentYear = currentDate.getFullYear();
     const currentMonth = currentDate.getMonth() + 1;
 
-    const [patientsResponse, appointmentsResponse, revenueMonthlyResponse, revenueDailyResponse] = await Promise.all([
+    // Ajout de la requête pour le nombre total de patients
+    const [
+      patientsResponse,
+      appointmentsResponse,
+      revenueMonthlyResponse,
+      revenueDailyResponse,
+      totalPatientsResponse
+    ] = await Promise.all([
       axiosInstance.get(ENDPOINTS.DASHBOARD.RECENT_PATIENTS),
       axiosInstance.get(ENDPOINTS.APPOINTMENTS.ALL),
       axiosInstance.get(ENDPOINTS.DASHBOARD.REVENUE_MONTHLY(currentYear)),
-      axiosInstance.get(ENDPOINTS.DASHBOARD.REVENUE_DAILY(currentYear, currentMonth))
+      axiosInstance.get(ENDPOINTS.DASHBOARD.REVENUE_DAILY(currentYear, currentMonth)),
+      axiosInstance.get(ENDPOINTS.DASHBOARD.TOTAL_PATIENT)
     ]);
 
     // Log revenue data
@@ -103,6 +111,9 @@ export const getDashboardData = async () => {
 
     console.log('Today\'s Revenue:', todayRevenue);
 
+    // Ajout récupération du nombre total de patients
+    const totalPatients = totalPatientsResponse.data?.nombrePatient ?? 0;
+
     return {
       patients: recentPatients,
       appointments: todayAppointments,
@@ -110,7 +121,8 @@ export const getDashboardData = async () => {
       recentAppointments: todayAppointments.slice(0, 5),
       revenue: revenueData,
       dailyRevenue: dailyRevenueData,
-      todayRevenue
+      todayRevenue,
+      totalPatients // Ajout ici
     };
   } catch (error) {
     console.error('Error fetching dashboard data:', error);
@@ -120,7 +132,8 @@ export const getDashboardData = async () => {
       totalAppointments: 0,
       recentAppointments: [],
       revenue: { labels: [], data: [] },
-      dailyRevenue: { labels: [], data: [] }
+      dailyRevenue: { labels: [], data: [] },
+      totalPatients: 0 // Ajout ici
     };
   }
 };

@@ -7,6 +7,7 @@ import { consultService, Patient, Treatment } from '@/services/consultService';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { useRouter } from 'next/navigation';
+import jsPDF from 'jspdf';
 
 interface Antecedent {
   id: number;
@@ -118,6 +119,12 @@ const ConsultationAjoutPage: React.FC = () => {
     type: 'espece',
     date_paiement: new Date().toISOString().split('T')[0]
   });
+
+  // Ajout d'un état pour stocker la dernière consultation créée
+  const [lastConsultation, setLastConsultation] = useState<any>(null);
+
+  // Pour afficher le menu de choix PDF
+  const [showPdfMenu, setShowPdfMenu] = useState(false);
 
   // Recherche de patients
   const searchPatients = async (term: string) => {
@@ -270,7 +277,8 @@ const ConsultationAjoutPage: React.FC = () => {
         total: (total: any) => total
       };
 
-      await consultService.createConsultation(consultationData);
+      const createdConsultation = await consultService.createConsultation(consultationData);
+      setLastConsultation(createdConsultation); // Stocker la consultation pour impression
       
       toast.success('Consultation créée avec succès!', {
         position: "top-right",
@@ -404,6 +412,130 @@ const ConsultationAjoutPage: React.FC = () => {
       .reduce((sum, s) => sum + parseFloat(s.prix), 0);
 
     return treatmentsTotal + productsTotal;
+  };
+
+  // Fonction pour générer le PDF de la fiche consultation (hors paiement)
+  const handleDownloadConsultationPDF = () => {
+    if (!lastConsultation) return;
+    const doc = new jsPDF();
+    doc.setFontSize(16);
+    doc.text('Fiche Consultation', 10, 15);
+    doc.setFontSize(12);
+
+    // Sécurisation de l'accès aux données patient
+    const patient =
+      lastConsultation.patient ||
+      lastConsultation.consultation?.patient ||
+      lastConsultation.consultation?.patient_id ||
+      {};
+
+    const prenom = patient.prenom || '';
+    const nom = patient.name || '';
+    const dateConsult = lastConsultation.date_consultation || lastConsultation.consultation?.date_consultation || '';
+    const nbSeances = lastConsultation.nb_seances || lastConsultation.consultation?.nb_seances || '';
+    const observation = lastConsultation.observation || lastConsultation.consultation?.observation || '';
+    const temperature = lastConsultation.temperature || lastConsultation.consultation?.temperature || '';
+    const tension = lastConsultation.tension || lastConsultation.consultation?.tension || '';
+
+    doc.text(`Patient: ${prenom} ${nom}`, 10, 30);
+    doc.text(`Date consultation: ${dateConsult}`, 10, 40);
+    doc.text(`Nombre de séances: ${nbSeances}`, 10, 50);
+    doc.text(`Observation: ${observation}`, 10, 60);
+    doc.text(`Température: ${temperature}`, 10, 70);
+    doc.text(`Tension: ${tension}`, 10, 80);
+
+    // Antécédents
+    let y = 90;
+    const antecedents =
+      lastConsultation.antecedents ||
+      lastConsultation.consultation?.antecedents ||
+      [];
+    if (antecedents && antecedents.length > 0) {
+      doc.text('Antécédents:', 10, y);
+      y += 8;
+      antecedents.forEach((ant: any) => {
+        doc.text(`- ${ant.titre}${ant.description ? ' : ' + ant.description : ''}`, 12, y);
+        y += 8;
+      });
+    }
+    // Traitements
+    const traitements =
+      lastConsultation.traitements ||
+      lastConsultation.consultation?.traitements ||
+      [];
+    if (traitements && traitements.length > 0) {
+      doc.text('Traitements:', 10, y);
+      y += 8;
+      traitements.forEach((t: any) => {
+        doc.text(`- ${t.nom || t.titre || ''}`, 12, y);
+        y += 8;
+      });
+    }
+    // Produits
+    const produits =
+      lastConsultation.produits ||
+      lastConsultation.consultation?.produits ||
+      [];
+    if (produits && produits.length > 0) {
+      doc.text('Médicaments:', 10, y);
+      y += 8;
+      produits.forEach((p: any) => {
+        doc.text(`- ${p.nom || ''}`, 12, y);
+        y += 8;
+      });
+    }
+    doc.save('fiche_consultation.pdf');
+  };
+
+  // Fonction pour générer le PDF de la facture de paiement
+  const handleDownloadFacturePDF = () => {
+    if (!lastConsultation) return;
+    const doc = new jsPDF();
+    doc.setFontSize(16);
+    doc.text('Facture de Paiement', 10, 15);
+    doc.setFontSize(12);
+
+    // Sécurisation de l'accès aux données patient
+    const patient =
+      lastConsultation.patient ||
+      lastConsultation.consultation?.patient ||
+      lastConsultation.consultation?.patient_id ||
+      {};
+
+    const prenom = patient.prenom || '';
+    const nom = patient.name || '';
+    const dateConsult = lastConsultation.date_consultation || lastConsultation.consultation?.date_consultation || '';
+
+    doc.text(`Patient: ${prenom} ${nom}`, 10, 30);
+    doc.text(`Date consultation: ${dateConsult}`, 10, 40);
+
+    // Paiements
+    let y = 50;
+    const paiements =
+      lastConsultation.paiements ||
+      lastConsultation.consultation?.paiements ||
+      [];
+    if (paiements && paiements.length > 0) {
+      doc.text('Paiements:', 10, y);
+      y += 8;
+      paiements.forEach((pay: any) => {
+        doc.text(
+          `- ${pay.type || ''} : ${pay.montant || ''} Ar le ${pay.date_paiement || pay.date || ''}`,
+          12,
+          y
+        );
+        y += 8;
+      });
+    } else {
+      doc.text('Aucun paiement enregistré.', 10, y);
+      y += 8;
+    }
+    const total =
+      lastConsultation.total ||
+      lastConsultation.consultation?.total ||
+      '';
+    doc.text(`Total: ${total} Ar`, 10, y + 8);
+    doc.save('facture_consultation.pdf');
   };
 
   return (
@@ -1095,6 +1227,58 @@ const ConsultationAjoutPage: React.FC = () => {
             {isSubmittingConsultation ? 'Création en cours...' : 'Créer la consultation'}
           </Button>
         </div>
+
+        {/* Bouton unique de téléchargement PDF après création consultation */}
+        {lastConsultation && (
+          <div className="relative flex gap-4 mt-6 text-gray-700">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setShowPdfMenu(true)}
+            >
+              Télécharger PDF
+            </Button>
+            {showPdfMenu && (
+              <div className="fixed inset-0 bg-black/25 z-50 flex items-center justify-center">
+                <div className="bg-white p-6 rounded-lg shadow-lg max-w-sm w-full relative">
+                  {/* Petit X en haut à droite */}
+                  <button
+                    onClick={() => setShowPdfMenu(false)}
+                    className="absolute top-3 right-3 text-gray-400 hover:text-gray-700 text-xl font-bold focus:outline-none"
+                    aria-label="Fermer"
+                    type="button"
+                    style={{ lineHeight: 1 }}
+                  >
+                    &times;
+                  </button>
+                  <div className="text-center">
+                    <h3 className="text-lg font-semibold mb-4">Choisissez le type de PDF à télécharger</h3>
+                    <div className="flex justify-center space-x-4">
+                      <button
+                        onClick={() => {
+                          handleDownloadConsultationPDF();
+                          setShowPdfMenu(false);
+                        }}
+                        className="cursor-pointer px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-md transition-colors flex items-center space-x-2"
+                      >
+                        <span>Fiche consultation</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          handleDownloadFacturePDF();
+                          setShowPdfMenu(false);
+                        }}
+                        className="cursor-pointer px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-md transition-colors flex items-center space-x-2"
+                      >
+                        <span>Facture</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
