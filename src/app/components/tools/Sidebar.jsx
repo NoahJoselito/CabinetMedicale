@@ -5,25 +5,80 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from 'next/navigation';
 import { useState, useEffect } from "react";
+import { checkUser } from "../../../services/checkService";
 
 const sidebarItems = [
-  { icon: LayoutDashboard, title: "Tableau de bord", href: "/Page" },
-  { icon: Stethoscope, title: "Service", href: "/Page/service" },
-  { icon: Package, title: "Stocks", href: "/Page/stocks" },
-  { icon: Pill, title: "Traitement", href: "/Page/traitement" },
-  { icon: User, title: "Docteur", href: "/Page/docteur" },
-  { icon: Folder, title: "Patient", href: "/Page/patient" },
-  { icon: CalendarCheck, title: "Consultation", href: "/Page/consultation" },
-  { icon: FileText, title: "Dossier Médical", href: "/Page/dossier" },
-  { icon: CalendarDays, title: "Rendez-vous", href: "/Page/rendez_vous" },
+  { icon: LayoutDashboard, title: "Tableau de bord", href: "/Page", key: "dashboard" },
+  { icon: Stethoscope, title: "Service", href: "/Page/service", key: "service" },
+  { icon: Package, title: "Stocks", href: "/Page/stocks", key: "stocks" },
+  { icon: Pill, title: "Traitement", href: "/Page/traitement", key: "traitement" },
+  { icon: User, title: "Docteur", href: "/Page/docteur", key: "docteur" },
+  { icon: Folder, title: "Patient", href: "/Page/patient", key: "patient" },
+  { icon: CalendarCheck, title: "Consultation", href: "/Page/consultation", key: "consultation" },
+  { icon: FileText, title: "Dossier Médical", href: "/Page/dossier", key: "dossierMedical" },
+  { icon: CalendarDays, title: "Rendez-vous", href: "/Page/rendez_vous", key: "rendezVous" },
 ];
 
 const Sidebar = () => {
   const pathname = usePathname();
   const [error, setError] = useState(null);
+  const [user, setUser] = useState(null);
+  const [allowedMenus, setAllowedMenus] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  if (pathname === '/login') {
+  useEffect(() => {
+    const fetchUserData = async () => {
+      try {
+        const userData = await checkUser();
+        setUser(userData.user);
+        setAllowedMenus(userData.allowedMenus);
+      } catch (error) {
+        console.error('Erreur lors de la récupération des données utilisateur:', error);
+        // Rediriger vers la page de connexion si l'utilisateur n'est pas authentifié
+        window.location.href = '/Formulaire/login';
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (pathname !== '/login' && pathname !== '/Formulaire/login') {
+      fetchUserData();
+    } else {
+      setLoading(false);
+    }
+  }, [pathname]);
+
+  // Fonction pour déterminer si un menu doit être affiché selon le rôle
+  const isMenuAllowed = (menuKey) => {
+    if (!user) return false;
+    
+    switch (user.role_id) {
+      case 1: // Admin - peut tout voir
+        return true;
+      case 2: // Docteur - peut voir Patient et Dossier Médical
+        return [ 'patient', 'dossierMedical', 'consultation'].includes(menuKey);
+      case 3: // Assistant
+        return ['rendezVous'].includes(menuKey);
+      case 4: // Patient
+        return [ 'rendezVous', 'dossierMedical'].includes(menuKey);
+      default:
+        return false;
+    }
+  };
+
+  if (pathname === '/login' || pathname === '/Formulaire/login') {
     return null;
+  }
+
+  if (loading) {
+    return (
+      <div className="w-full h-screen text-gray-800 bg-gray-100 shadow-lg flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
+          <p className="mt-2 text-sm text-gray-600">Chargement...</p>
+        </div>
+      </div>
+    );
   }
 
   const handleLogout = async () => {
@@ -60,19 +115,22 @@ const Sidebar = () => {
     }
   };
 
+  // Filtrer les éléments du sidebar selon les permissions
+  const filteredSidebarItems = sidebarItems.filter(item => isMenuAllowed(item.key));
+
   return (
     <>
       <div className="w-full h-screen text-gray-800 bg-gray-100 shadow-lg flex flex-col justify-between p-4">
         <Link href={"/Page"}>
-        <div className="flex items-center space-x-2 py-4">
-          <Image src="/img/logo.jpg" width={40} height={40} alt="Cabinet Médical Logo" className="rounded-full" />
-          <span className="text-blue-500 text-lg font-bold">Cabinet Médicale</span>
-        </div>
+          <div className="flex items-center space-x-2 py-4">
+            <Image src="/img/logo.jpg" width={40} height={40} alt="Cabinet Médical Logo" className="rounded-full" />
+            <span className="text-blue-500 text-lg font-bold">Cabinet Médicale</span>
+          </div>
         </Link>
 
         <nav className="mt-6 flex-1 overflow-y-auto">
           <ul className="space-y-2 pr-4">
-            {sidebarItems.map((item) => (
+            {filteredSidebarItems.map((item) => (
               <SidebarItem key={item.title} icon={item.icon} title={item.title} href={item.href} />
             ))}
           </ul>

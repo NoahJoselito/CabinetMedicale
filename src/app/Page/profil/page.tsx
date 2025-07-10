@@ -2,10 +2,9 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { FiEdit2, FiSave, FiLogOut, FiUser, FiMail, FiPhone, FiCalendar, FiMapPin, FiBriefcase, FiGlobe, FiUpload, FiCamera } from 'react-icons/fi';
+import { FiEdit2, FiSave, FiLogOut, FiUser, FiMail, FiPhone, FiCalendar, FiMapPin, FiBriefcase, FiGlobe, FiUpload, FiCamera, FiLock, FiEye, FiEyeOff } from 'react-icons/fi';
 import Link from "next/link";
-import { img } from 'framer-motion/client';
-import { getUserProfile, updateUserProfile, UserProfile } from '@/services/profilService';
+import { getUserProfile, updateUserProfile, updatePassword, UserProfile, UpdatePasswordData } from '@/services/profilService';
 
 const Loading = () => (
   <div className="min-h-screen flex items-center justify-center bg-gray-100">
@@ -213,7 +212,7 @@ export default function Profil() {
                   <input 
                     type="text" 
                     name={key} 
-                    value={value} 
+                    value={value || ''}
                     onChange={handleInputChange} 
                     className="border p-2 rounded w-full"
                   />
