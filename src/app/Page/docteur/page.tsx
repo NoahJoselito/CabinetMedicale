@@ -237,7 +237,7 @@ export default function Docteur() {
       <div className={`relative ${isFormOpen ? 'filter  pointer-events-none select-none' : ''}`}>
         <div className="flex justify-between items-center mb-6">
           <div>
-            <h1 className="text-2xl font-bold text-gray-800">Gestion des Docteurs</h1>
+            <h1 className="text-2xl font-bold text-gray-800">Docteurs</h1>
             <p className="text-gray-600">Liste de tous les docteurs du cabinet</p>
           </div>
           <Button

@@ -414,129 +414,233 @@ const ConsultationAjoutPage: React.FC = () => {
     return treatmentsTotal + productsTotal;
   };
 
-  // Fonction pour générer le PDF de la fiche consultation (hors paiement)
-  const handleDownloadConsultationPDF = () => {
-    if (!lastConsultation) return;
-    const doc = new jsPDF();
-    doc.setFontSize(16);
-    doc.text('Fiche Consultation', 10, 15);
-    doc.setFontSize(12);
+// ⚙️ Assure-toi que ton logo est au format Base64
+// Exemple : const logoBase64 = 'data:image/png;base64,...'
 
-    // Sécurisation de l'accès aux données patient
-    const patient =
-      lastConsultation.patient ||
-      lastConsultation.consultation?.patient ||
-      lastConsultation.consultation?.patient_id ||
-      {};
+const handleDownloadConsultationPDF = () => {
+  if (!lastConsultation) return;
 
-    const prenom = patient.prenom || '';
-    const nom = patient.name || '';
-    const dateConsult = lastConsultation.date_consultation || lastConsultation.consultation?.date_consultation || '';
-    const nbSeances = lastConsultation.nb_seances || lastConsultation.consultation?.nb_seances || '';
-    const observation = lastConsultation.observation || lastConsultation.consultation?.observation || '';
-    const temperature = lastConsultation.temperature || lastConsultation.consultation?.temperature || '';
-    const tension = lastConsultation.tension || lastConsultation.consultation?.tension || '';
+  const doc = new jsPDF();
 
-    doc.text(`Patient: ${prenom} ${nom}`, 10, 30);
-    doc.text(`Date consultation: ${dateConsult}`, 10, 40);
-    doc.text(`Nombre de séances: ${nbSeances}`, 10, 50);
-    doc.text(`Observation: ${observation}`, 10, 60);
-    doc.text(`Température: ${temperature}`, 10, 70);
-    doc.text(`Tension: ${tension}`, 10, 80);
+  // === 1️⃣ LOGO ===
+  const logoBase64 = 'data:image/webp;base64,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';
+  doc.addImage(logoBase64, 'PNG', 10, 10, 40, 20);
 
-    // Antécédents
-    let y = 90;
-    const antecedents =
-      lastConsultation.antecedents ||
-      lastConsultation.consultation?.antecedents ||
-      [];
-    if (antecedents && antecedents.length > 0) {
-      doc.text('Antécédents:', 10, y);
-      y += 8;
-      antecedents.forEach((ant: any) => {
-        doc.text(`- ${ant.titre}${ant.description ? ' : ' + ant.description : ''}`, 12, y);
-        y += 8;
-      });
-    }
-    // Traitements
-    const traitements =
-      lastConsultation.traitements ||
-      lastConsultation.consultation?.traitements ||
-      [];
-    if (traitements && traitements.length > 0) {
-      doc.text('Traitements:', 10, y);
-      y += 8;
-      traitements.forEach((t: any) => {
-        doc.text(`- ${t.nom || t.titre || ''}`, 12, y);
-        y += 8;
-      });
-    }
-    // Produits
-    const produits =
-      lastConsultation.produits ||
-      lastConsultation.consultation?.produits ||
-      [];
-    if (produits && produits.length > 0) {
-      doc.text('Médicaments:', 10, y);
-      y += 8;
-      produits.forEach((p: any) => {
-        doc.text(`- ${p.nom || ''}`, 12, y);
-        y += 8;
-      });
-    }
-    doc.save('fiche_consultation.pdf');
-  };
+  // === 2️⃣ TITRE ===
+  doc.setFontSize(18);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Fiche Consultation', 105, 20, { align: 'center' });
 
-  // Fonction pour générer le PDF de la facture de paiement
-  const handleDownloadFacturePDF = () => {
-    if (!lastConsultation) return;
-    const doc = new jsPDF();
-    doc.setFontSize(16);
-    doc.text('Facture de Paiement', 10, 15);
-    doc.setFontSize(12);
+  // === 3️⃣ LIGNE SÉPARATION ===
+  doc.setDrawColor(0);
+  doc.line(10, 35, 200, 35);
 
-    // Sécurisation de l'accès aux données patient
-    const patient =
-      lastConsultation.patient ||
-      lastConsultation.consultation?.patient ||
-      lastConsultation.consultation?.patient_id ||
-      {};
+  doc.setFontSize(12);
+  doc.setFont('helvetica', 'normal');
 
-    const prenom = patient.prenom || '';
-    const nom = patient.name || '';
-    const dateConsult = lastConsultation.date_consultation || lastConsultation.consultation?.date_consultation || '';
+  // === 4️⃣ Données Patient ===
+  const patient =
+    lastConsultation.patient ||
+    lastConsultation.consultation?.patient ||
+    lastConsultation.consultation?.patient_id ||
+    {};
 
-    doc.text(`Patient: ${prenom} ${nom}`, 10, 30);
-    doc.text(`Date consultation: ${dateConsult}`, 10, 40);
+  const prenom = patient.prenom || '';
+  const nom = patient.name || '';
+  const dateConsult =
+    lastConsultation.date_consultation ||
+    lastConsultation.consultation?.date_consultation ||
+    '';
+  const nbSeances =
+    lastConsultation.nb_seances ||
+    lastConsultation.consultation?.nb_seances ||
+    '';
+  const observation =
+    lastConsultation.observation ||
+    lastConsultation.consultation?.observation ||
+    '';
+  const temperature =
+    lastConsultation.temperature ||
+    lastConsultation.consultation?.temperature ||
+    '';
+  const tension =
+    lastConsultation.tension ||
+    lastConsultation.consultation?.tension ||
+    '';
 
-    // Paiements
-    let y = 50;
-    const paiements =
-      lastConsultation.paiements ||
-      lastConsultation.consultation?.paiements ||
-      [];
-    if (paiements && paiements.length > 0) {
-      doc.text('Paiements:', 10, y);
-      y += 8;
-      paiements.forEach((pay: any) => {
-        doc.text(
-          `- ${pay.type || ''} : ${pay.montant || ''} Ar le ${pay.date_paiement || pay.date || ''}`,
-          12,
-          y
-        );
-        y += 8;
-      });
-    } else {
-      doc.text('Aucun paiement enregistré.', 10, y);
-      y += 8;
-    }
-    const total =
-      lastConsultation.total ||
-      lastConsultation.consultation?.total ||
-      '';
-    doc.text(`Total: ${total} Ar`, 10, y + 8);
-    doc.save('facture_consultation.pdf');
-  };
+  let y = 45;
+
+  doc.text(`Patient : ${prenom} ${nom}`, 10, y);
+  y += 8;
+  doc.text(`Date consultation : ${dateConsult}`, 10, y);
+  y += 8;
+  doc.text(`Nombre de séances : ${nbSeances}`, 10, y);
+  y += 8;
+  doc.text(`Température : ${temperature}`, 10, y);
+  y += 8;
+  doc.text(`Tension : ${tension}`, 10, y);
+  y += 8;
+
+  // === 5️⃣ Observation ===
+  doc.setFont('helvetica', 'bold');
+  doc.text('Observation :', 10, y);
+  doc.setFont('helvetica', 'normal');
+  y += 6;
+  doc.text(doc.splitTextToSize(observation, 180), 10, y);
+  y += observation.length > 50 ? 12 : 8;
+
+  // === 6️⃣ Antécédents ===
+  const antecedents =
+    lastConsultation.antecedents ||
+    lastConsultation.consultation?.antecedents ||
+    [];
+
+  if (antecedents && antecedents.length > 0) {
+    doc.setFont('helvetica', 'bold');
+    doc.text('Antécédents :', 10, y);
+    y += 6;
+    doc.setFont('helvetica', 'normal');
+    antecedents.forEach((ant: any) => {
+      doc.text(`- ${ant.titre}${ant.description ? ' : ' + ant.description : ''}`, 12, y);
+      y += 6;
+    });
+  }
+
+  // === 7️⃣ Traitements ===
+  const traitements =
+    lastConsultation.traitements ||
+    lastConsultation.consultation?.traitements ||
+    [];
+  if (traitements && traitements.length > 0) {
+    doc.setFont('helvetica', 'bold');
+    doc.text('Traitements :', 10, y);
+    y += 6;
+    doc.setFont('helvetica', 'normal');
+    traitements.forEach((t: any) => {
+      doc.text(`- ${t.nom || t.titre || ''}`, 12, y);
+      y += 6;
+    });
+  }
+
+  // === 8️⃣ Produits ===
+  const produits =
+    lastConsultation.produits ||
+    lastConsultation.consultation?.produits ||
+    [];
+  if (produits && produits.length > 0) {
+    doc.setFont('helvetica', 'bold');
+    doc.text('Médicaments :', 10, y);
+    y += 6;
+    doc.setFont('helvetica', 'normal');
+    produits.forEach((p: any) => {
+      doc.text(`- ${p.nom || ''}`, 12, y);
+      y += 6;
+    });
+  }
+
+  // === 9️⃣ Footer ===
+  doc.setFontSize(10);
+  doc.text(
+    `Document généré le ${new Date().toLocaleDateString()}`,
+    105,
+    290,
+    { align: 'center' }
+  );
+
+  doc.save(`Fiche_Consultation_${prenom}_${nom}.pdf`);
+};
+
+
+ const handleDownloadFacturePDF = () => {
+  if (!lastConsultation) return;
+
+  const doc = new jsPDF();
+
+  // === 1️⃣ LOGO ===
+  const logoBase64 = 'data:image/webp;base64,UklGRrgNAABXRUJQVlA4IKwNAABwTACdASoEARgBPjEYi0QiIaER6VyMIAMEs7dwuqiIzg/qv4gbMF1H8gPxu5IzvJ+0n9u6jQ1vU39d/JL+oe9z+O+yL8yf6T3AP0A/vv8560vmA/i39U/z/+G93z0AegB/Mv8/1kf66ewB+0vpOfr78GH7aftJ7Sf/m1pbyF/We0H+mfkv1eneP2Q5FcR3459L/tH5g/2L2V/yvhXwAvxv+R/178sf7V+2vGgywfjN8AXsT8h/s/9c/Xv+9ec3+m+jfiAfxv+Y/438x/7dzxfinsAfyv+sf5H+0fs5/cf//9rX8R/sP8N+UHtQ/Mf8B/z/8n8A/8l/lf98/rv+F/4n99////i+632BftP7Gf6rjAI11f8aVyL5B4GuujXV/xpXIvYrEtSVIQNddGur/BN81nuusU/0/tekK+ri9njSe6TeaUiNdX/DQeTj4ogHh4dHKkMDbqYUXyDvrO3EghJHeBeMU2VXBVuwa37yKEHga66KyDPRC325xWrVWU6SC/xpXIMBFe2ZrxLbHnvKm7VjNbkaagfbUCzSI11QoSaqaie8vl1lPCgogauSrp/jSt/hVxkrsD0DljNQgoAEYorDLsHmzk3rxpW/rQpRvubhhkyWkArXwSvDU2eHFiPr/lcY110a5IqJrMQvFfw8bR8KL5B4FO+l9iTI4Q6m3X6JYaYpcyI11f8aVSZTgAQXpkS8SJulbo11f8aVyL5B4GuujXV/xpXIvjTq1Gpg+I1QjWdEYejNOY8iuTutsbRmpB+uRXbLKiUfWlsaVyDnSvUQ2XhKzQ9cVRrxk0h54CjFJ7xqC+UrNwYaGr+4AAD+/+GVgAIOCKF0ZjS7OgNLcHHeGPjXr5XV4m9YIRhFkggKeyRDGL8WHt7OThUxAvNtttptU9zp2kyo+Q1iXI5waeE0SdubmSdodeqHSLyURYtP8DRXbVz0m8f6tEe/rOfaFxySGWB32CkH0I5fNLFmIkHfm+n82KVNQAF//yIXA85tuv1Z1V4+ymsFzawi0uZQC3VLEth/mZg4MpJ1B+/MWWaTbg7dk2rvkXFGgzESVs2VRBQAPsRvvYzWrQJDhPEmN4dPe9/vdTetOOoIbKqLH3Os023uZqNZtzaaYf5+Rz1ABIA3+KKwy9f9ERIXTdziTuk3BKPxRUUvBQ7duyRe/OM3IrFXyKiihbnGcpVzwyd+Ikvb/cq6MQ0dkcpqUrpNvU63zulWEbxkSojrhU5bAdjyhtTyuaqR0/WESY5yTp068bQcjjH/rYAO1508ou5enZNuB2RUVjp1dJt8+q+P075CFDXjYS1DS9EUUuOcllRNexL2NB7qyKOnDWdm16baC1ADHbuIiRhxm6QOvJac+EGDI4G0Dkdb2ZnZyiG4deIwKurpY49uRmtPqlguK2KJwsd7Mzh39dyXx0vPDMcfQXrabgSCzyBPN74rdKMncI9tY+VBB5HVLLsHflsGlmAOgawcjS8d29XMMi19BI5M/88bSxJUIdAV1HMFr0H1cWWc+SAe4cuBQWmB4dRyVnRXgFQU2Ccwp9LLLOxMgZ0drc8gJY5f8x1MzZLilm18NX7BLHFd/KKTI2xc76FRz4635fXdlTopjaOei5ZZqp1pkoVVf+0fC74FJ25PeGmv5Mjh8WZucyZhVH9by/mWN9fdpepYXbDhxXroV6bcNJP/muadi8IdBLMhA94QPYJIX1b17PWsLQDBMTjoUJ09FalgyCgfZUzW0XRVV673dxumR1QCDppRnL+YsxOklAb1sFXd55tZkbWd/1u7jZ5oNY6D9RqIFxE59whJW4BmmI/Zo9IUesrcHH+BHNeVsQ2HN6d2Gmxxvxw/qVd/DlSH5b/dU//daJ0gUKvcFrDP1SmS6uTi055F5IcweNd1ZZrZpKaX8N0nm8cXZp2PHhmjnG0dlJXk6zINfYO9gXh1W+rWICswF4j/0Zao+GPeWYptknGG3bTZpRbMC93QZknN/dU+UhjMRLs60SUPYupNmNmkVHH7Zpqsxxc+pAKcJEJeoWk1TGW9jOYYfTipf8l8dLeIpF9N07yw47/oSQB1HALMdY+f30Ic83dPwr/eyxP5fwNNeciHa6AG3OO2vJx10WsxsTaktQfSw7pjdLJOZk9snQQSsfMdTM2S4nOKUN7WO6LsxRgPHe5dwstVb2vVC8IGo6eiwZo6tcqtzj7IZSNx0+l6V/0gdnZBIsTGVJIRQ5xSI+hLHNr4YC7nsCSzaAAB0HG3H7vxj70n09fg4nH/SAcmogoz2Wl+KyrIRSBkjKyIYN9Evsc96tD4fwdQmH5mm3VK/3nMm1L56gtdkCWRAOPfr720bpHpWunY+3RdhoOpmxjlfHU1lb2D7QZRSjuSn1AtkjCaKR684R2zplumHd5e6tmATWaS1cEsK6q9lwIZETfamYBqmcY//APfo5vaku6/0Y8xkBZ7sV2WrjcEzH/OTALPAiZFMTFWcNIzjpfntH9gbIg93qitwMA9N5Upa8fkgxAN1aw+Kl0ZrJF85rahxqatUlPO62CaJXFdG6TgyhrKCuXq00R+Cm21AvzFiTtdF9tq1Xv1190tEm+YieY/q+Xb3BOFWB/ejwT2VTwcVhSXUd3RYbM0hEXyp343ZECieeymS+VQ7M8i0YbKxQsNpQzMEWoiEKOEKWWum4WkDVx0t0xqgz5ZdhjyEagUCm2Yj8cbNYNzpawYaQL6gN7vGKSFtXJgYf29YAHMMgxblyJwB/8veJQS3IfX7BhmwKg8gn2JSGni9QWrpdLjrFIrafI5f21BibA8QbDLTAK1NrTyhTZoZr9r2vFM1Ypn5Wfa3ijbx0coKxTgkvpnIA8QzV5uYV5dRmj9cchh/RxSBKeaSi0WWjFKogfHV6qEXufBkxkuXCT9kVIBT+WO4Tg6mZJ8+eAmFTcp59kTTMllBvTjIpFecFtEsD3BHTWJRpULSauwWFI2gI8AN96VU/GNQ1fvCLu5cW33vd6F06zK5pzYu+2mRO0nAOilHD4U8yBnC7fgNcmNvHlG09gOorMOrpkIwKPtOosmJrsgLDg2wq7vq+NhXg6fOz7GcipAeJtG8kgYuViiqbC2G5a/y88RvUl+fSP8uN1BNhgxRznItVQvjNToxzcdgpTfmOczB9jHz+wzP4iXrEN7iZLNVc+IpZr30bgE3P57SNoWgUBtoXsMQjmP9sWuIYAfoKLtFFD8FuPsnXKGj6hTy0KljNZIvnM/NqA2cdL63cJo/5zu9DXsXGIn7xD1BS5f0v0MzF+Kz9Bz5wc8fF1ebz/aS4/EnJHRwIEWAA3yd6d9ocNeA9iTdpvZf6SSVDqtstDr2T1WFs+t7k6yNKMtHIklUmFKfb7BUAYwOAA826kOv8qQiXL1VbOrunEldIVzpNMgl+QxSB3WfnIPz/2vpjRktMSfLHHAo3JDDD7fvOSWh2KE5oCTKTwLrYcRcx5enphE/Zpl5gPn16vxjM2zjzqwFaX6bL7/lgjbm7hVkvDHc1cAQVkAkXyYQo6CupPDX7VN6S8HKfBo4AUO48bj1jb+BIuUKNj0BkX/ocDozoOcwM5qoS4Ev8ZGJGAF9jsOfZcPA6tEIw1XP0B41PKC0uwARLRGuMQ16IN+mRZQG5yBKJtYu/3/HkKtSL7jyvYV8d/B7+mqcSlP8NFswo+0UGGr0CCA05zmttZMBMtLPYqY2RIfzc8w/jHyglKrGz2ceYafBvZHOL/8exucJTBdeYTQ6lf/59krSngixfKhKBx4TiqE4YiePfMT3KXbACYkcY1RG7nnEHBub/v45Kbe+rrNXvUVVJc22oleS7uUAP7KecBYwvCbAzfAbJBSer+vbRiHtP4nS33G8Mz9idItBiZ8JfIz7DDEJrkLQfXyfm00wKOYMbnSxeDqVQXJtkl2kMH9QMV6pYxNWhAF5vuuizqpXusOT6C/ZnSYiFIyt9JHN8k7lf5hktT9vXa0Ep15sdHI3MpJyKCoRXAXLbLorRvC8UXJtkl2rhnkIw6ORuZSTj82QUt1ImAy63q0Yrt3sUJNYPIKYxgIyqW71qvy5tvJVko8lqI6m9Ea9m5lIWDZUpLemaTuOEyal6pc2XXNYydowx5C0cfmCXaLzxcvRfZElBHdITm6sHJfOHgL+qCuOJe7Q9DeZgB4OocrKKCk1JWnCUpNsOAFH68+pnzoMeXuuTpdV7mZbwU3VZNRQxw8qiGjRGl7EK6zkxUaiZbV3qUxZORSjr7tRsC/juXe0Ol+XtvSZPiiixkgYa1uupXW+dTXuF91Syr78KNduz/NfQNXg5AwRRXqkkCbcXQN1cmetrkBy30tkb54Zc/AFV7TuWkzTotsSchv/CbasHcz/YHICDd8aU79/AOtzX+dirkxIegMnPqZpOfDOu+Y58LVh3m7Cdn7s+C5YEXyTqyPIJdH49fr6D4o6yCD7KDxBQshe0a5+QE6X4DI6srGCXQUMW/u58zsygqHSaJy4V6V/aZJEhnPUDPBMBKixd4r7UrkCXOga4Kx9D1GSGE1w5El5ySj7PWrGvSqy1anjSRPGH60W5TrokRS+VxP5X2McJhUHjWqWzR2dlnIIxOU0jh1aGLCn/xjwWOAdA00Eq1oMmxSxTDvQb0LnJve5yq1kZh4hZW2ckDHIIv5BHCvaJPMFA/vR60tUc3SeNyCcAAAAA==';
+  doc.addImage(logoBase64, 'PNG', 10, 10, 40, 20);
+
+  // === 2️⃣ TITRE ===
+  doc.setFontSize(18);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Facture de Paiement', 105, 20, { align: 'center' });
+
+  // === 3️⃣ LIGNE SÉPARATION ===
+  doc.setDrawColor(0);
+  doc.line(10, 35, 200, 35);
+
+  doc.setFontSize(12);
+  doc.setFont('helvetica', 'normal');
+
+  // === 4️⃣ Données Patient ===
+  const patient =
+    lastConsultation.patient ||
+    lastConsultation.consultation?.patient ||
+    lastConsultation.consultation?.patient_id ||
+    {};
+
+  const prenom = patient.prenom || '';
+  const nom = patient.name || '';
+  const dateConsult =
+    lastConsultation.date_consultation ||
+    lastConsultation.consultation?.date_consultation ||
+    '';
+
+  let y = 45;
+
+  doc.text(`Patient : ${prenom} ${nom}`, 10, y);
+  y += 8;
+  doc.text(`Date consultation : ${dateConsult}`, 10, y);
+  y += 10;
+
+  // === 5️⃣ Paiements ===
+  const paiements =
+    lastConsultation.paiements ||
+    lastConsultation.consultation?.paiements ||
+    [];
+
+  if (paiements && paiements.length > 0) {
+    doc.setFont('helvetica', 'bold');
+    doc.text('Détails Paiements :', 10, y);
+    y += 6;
+
+    doc.setFont('helvetica', 'normal');
+    paiements.forEach((pay: any) => {
+      doc.text(
+        `- ${pay.type || ''} : ${pay.montant || ''} Ar, le ${pay.date_paiement || pay.date || ''}`,
+        12,
+        y
+      );
+      y += 6;
+    });
+  } else {
+    doc.text('Aucun paiement enregistré.', 10, y);
+    y += 8;
+  }
+
+  // === 6️⃣ Total ===
+  const total =
+    lastConsultation.total ||
+    lastConsultation.consultation?.total ||
+    '';
+
+  y += 8;
+  doc.setFont('helvetica', 'bold');
+  doc.text(`Total à payer : ${total} Ar`, 10, y);
+
+  // === 7️⃣ Footer ===
+  doc.setFontSize(10);
+  doc.text(
+    `Document généré le ${new Date().toLocaleDateString()}`,
+    105,
+    290,
+    { align: 'center' }
+  );
+
+  // === 8️⃣ Sauvegarde ===
+  doc.save(`Facture_${prenom}_${nom}.pdf`);
+};
+
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">

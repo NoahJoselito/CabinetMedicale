@@ -36,15 +36,11 @@ const Sidebar = () => {
         console.error('Erreur lors de la récupération des données utilisateur:', error);
         // Rediriger vers la page de connexion si l'utilisateur n'est pas authentifié
         window.location.href = '/Formulaire/login';
-      } finally {
-        setLoading(false);
       }
     };
 
     if (pathname !== '/login' && pathname !== '/Formulaire/login') {
       fetchUserData();
-    } else {
-      setLoading(false);
     }
   }, [pathname]);
 
@@ -68,17 +64,6 @@ const Sidebar = () => {
 
   if (pathname === '/login' || pathname === '/Formulaire/login') {
     return null;
-  }
-
-  if (loading) {
-    return (
-      <div className="w-full h-screen text-gray-800 bg-gray-100 shadow-lg flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
-          <p className="mt-2 text-sm text-gray-600">Chargement...</p>
-        </div>
-      </div>
-    );
   }
 
   const handleLogout = async () => {
