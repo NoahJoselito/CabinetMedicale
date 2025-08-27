@@ -4,7 +4,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { FiEdit2, FiSave, FiLogOut, FiUser, FiMail, FiPhone, FiCalendar, FiMapPin, FiBriefcase, FiGlobe, FiUpload, FiCamera, FiLock, FiEye, FiEyeOff } from 'react-icons/fi';
 import Link from "next/link";
+import Image from 'next/image';
 import { getUserProfile, updateUserProfile, updatePassword, UserProfile, UpdatePasswordData } from '@/services/profilService';
+import { toast } from 'react-toastify';
 
 const Loading = () => (
   <div className="min-h-screen flex items-center justify-center bg-gray-100">
@@ -57,8 +59,9 @@ export default function Profil() {
         const data = await getUserProfile();
         setUserData(data);
         setFormData(data);
-        if (data.image) {
-          setProfileImage(data.image);
+        if (data.photo_url) {
+          setProfileImage(data.photo_url);
+          localStorage.setItem('userPhoto', data.photo_url);
         }
       } catch (err) {
         setError('Erreur lors du chargement du profil');
@@ -74,12 +77,46 @@ export default function Profil() {
   const handleEditToggle = async () => {
     if (editMode && formData) {
       try {
-        const updatedData = await updateUserProfile(formData);
-        setUserData(updatedData);
+        const formDataToSend = new FormData();
+        
+        // Append user data
+        formDataToSend.append('name', formData.name || '');
+        formDataToSend.append('prenom', formData.prenom || '');
+        formDataToSend.append('email', formData.email || '');
+        formDataToSend.append('numeroTelephone', formData.numeroTelephone || '');
+        formDataToSend.append('date_naissance', formData.date_naissance || '');
+        formDataToSend.append('adresse', formData.adresse || '');
+        formDataToSend.append('specialité', formData.specialité || '');
+        formDataToSend.append('emploi', formData.emploi || '');
+        formDataToSend.append('organisme', formData.organisme || '');
+
+        // Gérer la photo
+        if (fileInputRef.current?.files?.[0]) {
+          formDataToSend.append('photo', fileInputRef.current.files[0]);
+        }
+
+        const response = await updateUserProfile(formData.id, formDataToSend);
+        const updatedUser = response.user || response;
+        
+        // Utiliser directement photo_url fourni par le backend
+        if (updatedUser.photo_url) {
+          setProfileImage(updatedUser.photo_url);
+          localStorage.setItem('userPhoto', updatedUser.photo_url);
+          // Nettoyer l'aperçu temporaire et réinitialiser l'input fichier
+          localStorage.removeItem('tempUserPhoto');
+          if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+          }
+        }
+
+        setUserData(updatedUser);
+        setFormData(updatedUser);
         setError(null);
+        toast.success('Profil mis à jour avec succès');
       } catch (err) {
         setError('Erreur lors de la mise à jour du profil');
         console.error('Error updating profile:', err);
+        toast.error('Erreur lors de la mise à jour du profil');
         return;
       }
     }
@@ -101,7 +138,10 @@ export default function Profil() {
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
-        setProfileImage(reader.result as string);
+        const imageDataUrl = reader.result as string;
+        setProfileImage(imageDataUrl);
+        // Sauvegarder temporairement dans localStorage
+        localStorage.setItem('tempUserPhoto', imageDataUrl);
       };
       reader.readAsDataURL(file);
     }
@@ -113,15 +153,40 @@ export default function Profil() {
 
   const getDisplayableFields = (user: UserProfile) => {
     return {
-      'Nom complet': `${user.prenom} ${user.name}`,
-      'Email': user.email,
-      'Téléphone': user.numeroTelephone,
-      'Date de naissance': user.date_naissance,
-      'Adresse': user.adresse,
-      'Spécialité': user.specialité,
-      'Emploi': user.emploi,
-      'Organisme': user.organisme
+      name: { label: 'Nom', value: user.name },
+      prenom: { label: 'Prénom', value: user.prenom },
+      email: { label: 'Email', value: user.email },
+      numeroTelephone: { label: 'Téléphone', value: user.numeroTelephone },
+      date_naissance: { label: 'Date de naissance', value: user.date_naissance },
+      adresse: { label: 'Adresse', value: user.adresse },
+      specialité: { label: 'Spécialité', value: user.specialité },
+      emploi: { label: 'Emploi', value: user.emploi },
+      organisme: { label: 'Organisme', value: user.organisme }
     };
+  };
+
+  // Normalize any server-provided date into YYYY-MM-DD for <input type="date"/>
+  const toDateInputValue = (value: string | null | undefined) => {
+    if (!value) return '';
+    // If it's already YYYY-MM-DD, keep it
+    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+    const parsed = new Date(value);
+    if (isNaN(parsed.getTime())) return '';
+    const yyyy = parsed.getFullYear();
+    const mm = String(parsed.getMonth() + 1).padStart(2, '0');
+    const dd = String(parsed.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  };
+
+  const formatDateDisplay = (value: string | null | undefined) => {
+    if (!value) return '';
+    const parsed = new Date(value);
+    if (isNaN(parsed.getTime())) return value as string;
+    try {
+      return parsed.toLocaleDateString('fr-FR');
+    } catch {
+      return value as string;
+    }
   };
 
   if (loading) { return <Loading />; }
@@ -143,28 +208,34 @@ export default function Profil() {
   if (!userData) return null;
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-5xl mx-auto bg-white rounded-xl shadow-md overflow-hidden">
-        <div className="bg-gradient-to-r from-blue-600 to-blue-400 p-8 text-white">
-          <div className="flex flex-col md:flex-row items-center">
-            <div className="relative w-32 h-32 bg-white rounded-full flex items-center justify-center mb-4 md:mb-0 md:mr-6 shadow-lg overflow-hidden group">
-              {profileImage ? (
-                <img 
-                  src={profileImage} 
-                  alt={`${userData.prenom} ${userData.nom}`} 
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <span className="text-5xl text-blue-500 font-bold">
-                  {<img src='/img/profile.jpg' alt='logo' className='w-30 h-30'>
-                  </img>}
-                </span>
-              )}
-              
-             
+    <div className="min-h-screen from-slate-50 to-white p-4 md:p-8">
+      <div className="mx-auto max-w-6xl">
+        <div className="relative overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-100">
+          {/* Hero / Cover */}
+          <div className="relative h-36 md:h-44 w-full ">
+            <div className="absolute inset-0 opacity-20 pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle at 20% 20%, white 2px, transparent 2px)' }} />
+          </div>
+
+          {/* Header content */}
+          <div className="px-4 md:px-8 pb-6 -mt-16">
+            <div className="flex flex-col md:flex-row md:items-end gap-4">
+              {/* Avatar */}
+              <div className="relative">
+                <div className="rounded-full p-[3px] bg-gradient-to-tr from-blue-500 to-blue-500 w-36 h-36 md:w-40 md:h-40">
+                  <div className="relative w-full h-full rounded-full overflow-hidden bg-white/90">
+              <Image 
+                src={profileImage || localStorage.getItem('userPhoto') || '/img/profile.jpg'} 
+                alt={`Photo de ${userData.prenom} ${userData.name}`}
+                width={160}
+                height={160}
+                className="w-full h-full object-cover"
+                sizes="(max-width: 768px) 144px, 160px"
+                priority
+                unoptimized
+              />
               {editMode && (
                 <div 
-                  className="absolute inset-0 bg-black/40 flex items-center justify-center cursor-pointer z-10 opacity-0 group-hover:opacity-100 transition-opacity"
+                        className="absolute inset-0 bg-black/40 flex items-center justify-center cursor-pointer z-10 opacity-0 hover:opacity-100 transition-opacity"
                   onClick={triggerFileInput}
                 >
                   <div className="flex flex-col items-center text-white">
@@ -181,46 +252,87 @@ export default function Profil() {
                 </div>
               )}
             </div>
-            <div className="text-center md:text-left">
-              <h1 className="text-3xl font-bold">
+                </div>
+              </div>
+
+              {/* Name + role + actions */}
+              <div className="flex-1">
+                <div className="flex flex-col md:flex-row md:items-end gap-3 md:gap-6">
+                  <div className="">
+                    <h1 className="text-2xl md:text-3xl font-bold text-slate-900">
                 {userData?.prenom} {userData?.name}
               </h1>
-              <p className="text-xl opacity-90">{userData?.emploi}</p>
+                    <p className="text-slate-600">{userData?.emploi}</p>
             </div>
-            <div className="ml-auto mt-4 md:mt-0 flex space-x-3">
+                  <div className="md:ml-auto flex items-center gap-3 relative z-10">
               <button 
                 onClick={handleEditToggle}
-                className="cursor-pointer flex items-center bg-white text-blue-700 px-4 py-2 rounded-lg shadow hover:bg-blue-50 transition"
+                      className={`cursor-pointer inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium shadow-sm transition focus:outline-none focus:ring-2 focus:ring-offset-2 ${editMode ? 'bg-emerald-600 text-white hover:bg-emerald-700 focus:ring-emerald-600' : 'bg-white text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50 focus:ring-blue-600'}`}
               >
-                {editMode ? <><FiSave className="mr-2" /> Enregistrer</> : <><FiEdit2 className="mr-2" /> Modifier</>}
+                      {editMode ? (<><FiSave /> Enregistrer</>) : (<><FiEdit2 /> Modifier</>)}
               </button>
               <Link href="/Formulaire/login">
-              <button className="cursor-pointer flex items-center bg-red-600 text-white px-4 py-2 rounded-lg shadow hover:bg-red-700 transition">
-                <FiLogOut className="mr-2" /> Déconnexion
+                      <button className="cursor-pointer inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium bg-red-600 text-white shadow-sm hover:bg-red-700 transition focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-600">
+                        <FiLogOut /> Déconnexion
               </button>
               </Link>
+                  </div>
+                </div>
+
+                {/* Quick stats */}
+                <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  <div className="rounded-xl bg-slate-50 ring-1 ring-slate-100 p-3">
+                    <div className="text-[11px] uppercase tracking-wide text-slate-500">Email</div>
+                    <div className="text-sm font-medium text-slate-800 truncate">{userData?.email}</div>
+                  </div>
+                  <div className="rounded-xl bg-slate-50 ring-1 ring-slate-100 p-3">
+                    <div className="text-[11px] uppercase tracking-wide text-slate-500">Téléphone</div>
+                    <div className="text-sm font-medium text-slate-800 truncate">{userData?.numeroTelephone}</div>
+                  </div>
+                  <div className="rounded-xl bg-slate-50 ring-1 ring-slate-100 p-3">
+                    <div className="text-[11px] uppercase tracking-wide text-slate-500">Naissance</div>
+                    <div className="text-sm font-medium text-slate-800 truncate">{formatDateDisplay(userData?.date_naissance)}</div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-        <div className="p-8">
-          <h2 className="text-2xl font-semibold text-gray-700">Informations personnelles</h2>
-          <div className="mt-4 space-y-3 text-gray-600">
-            {userData && Object.entries(getDisplayableFields(userData)).map(([key, value]) => (
-              <div key={key}>
-                <label className="block font-semibold">{key} :</label>
+
+          {/* Body */}
+          <div className="px-4 md:px-8 py-8">
+            <h2 className="text-lg md:text-xl font-semibold text-slate-800">Informations personnelles</h2>
+            <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+            {userData && Object.entries(getDisplayableFields(userData)).map(([fieldName, { label, value }]) => (
+                <div key={fieldName} className="">
+                  <label className="block text-sm font-medium text-slate-600 mb-1">
+                    {label}
+                  </label>
                 {editMode ? (
-                  <input 
-                    type="text" 
-                    name={key} 
-                    value={value || ''}
-                    onChange={handleInputChange} 
-                    className="border p-2 rounded w-full"
-                  />
+                  fieldName === 'date_naissance' ? (
+                    <input
+                      type="date"
+                      name={fieldName}
+                      value={toDateInputValue(formData?.date_naissance)}
+                      onChange={handleInputChange}
+                      className="block w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition"
+                    />
+                  ) : (
+                    <input 
+                      type="text" 
+                      name={fieldName}
+                      value={formData?.[fieldName as keyof UserProfile] || ''}
+                      onChange={handleInputChange} 
+                      className="block w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition"
+                    />
+                  )
                 ) : (
-                  <p className="text-gray-700">{value}</p>
+                  <div className="block w-full rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 text-slate-800">
+                    {fieldName === 'date_naissance' ? formatDateDisplay(value as string) : value}
+                  </div>
                 )}
               </div>
             ))}
+            </div>
           </div>
         </div>
       </div>

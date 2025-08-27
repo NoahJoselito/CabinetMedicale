@@ -356,15 +356,22 @@ const MyComponent = () => {
   const handleError = (error: any) => {
     if (error.response?.status === 422) {
       const errors = error.response.data.errors;
+      const suppressedFields = new Set(['password', 'password_confirmation']);
       Object.entries(errors).forEach(([field, messages]) => {
+        if (suppressedFields.has(field)) return; // Ignore password-related errors
         if (Array.isArray(messages)) {
-          messages.forEach((message) => {
-
+          messages.forEach((message: string) => {
             toast.error(`${field}: ${message}`, {
               position: "top-right",
               autoClose: 5000,
               theme: "colored"
             });
+          });
+        } else if (typeof messages === 'string') {
+          toast.error(`${field}: ${messages}`, {
+            position: "top-right",
+            autoClose: 5000,
+            theme: "colored"
           });
         }
       });

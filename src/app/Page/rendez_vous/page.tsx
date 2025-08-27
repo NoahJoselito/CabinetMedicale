@@ -67,7 +67,7 @@ export default function Home() {
   if (loading) return <Loading />;
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 flex justify-center items-start text-gray-800">
+    <div className="min-h-screen  p-4 flex justify-center items-start text-gray-800">
       <div className="w-full max-w-6xl grid grid-cols-1 md:grid-cols-2 gap-8 bg-white p-6 rounded-2xl shadow-xl">
         <div className="space-y-6">
           <div className="flex justify-between items-center mb-6">

@@ -1,6 +1,5 @@
 import axiosInstance from './axiosConfig';
 import { ENDPOINTS } from './config';
-import axios from 'axios';
 
 interface Antecedent {
   id?: number;
@@ -49,10 +48,6 @@ interface PaginatedResponse {
   prev_page_url: string | null;
 }
 
-// Fonction utilitaire pour appeler l'API route Next.js pour envoyer le mot de passe
-async function sendPasswordEmail(email: string, password: string) {
-  await axios.post('/api/send-patient-password', { email, password });
-}
 
 export const patientService = {
   getPatients: async (page: number = 1): Promise<PaginatedResponse> => {
@@ -62,15 +57,10 @@ export const patientService = {
   
   createPatient: async (patientData: Patient) => {
     try {
-      const passwordToSend = patientData.password;
       const { data } = await axiosInstance.post(ENDPOINTS.AUTH.REGISTER, {
         ...patientData,
         role_id: 4,
       });
-      // Appeler l'API interne pour envoyer l'email
-      if (patientData.email && passwordToSend) {
-        await sendPasswordEmail(patientData.email, passwordToSend);
-      }
       return data;
     } catch (error: any) {
       if (error.response?.status === 422) {

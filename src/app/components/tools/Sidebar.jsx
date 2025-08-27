@@ -52,7 +52,7 @@ const Sidebar = () => {
       case 1: // Admin - peut tout voir
         return true;
       case 2: // Docteur - peut voir Patient et Dossier Médical
-        return [ 'patient', 'dossierMedical', 'consultation'].includes(menuKey);
+        return [ 'patient', 'dossierMedical', 'consultation', 'rendezVous'].includes(menuKey);
       case 3: // Assistant
         return ['rendezVous'].includes(menuKey);
       case 4: // Patient

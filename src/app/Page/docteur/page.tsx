@@ -429,14 +429,16 @@ export default function Docteur() {
               name="password" 
               type="password" 
               value={formData.password} 
-              onChange={handleInputChange} 
+              onChange={handleInputChange}
+              canRevealPassword
             />
             <Input 
               label="Confirmation du mot de passe" 
               name="password_confirmation" 
               type="password" 
               value={formData.password_confirmation} 
-              onChange={handleInputChange} 
+              onChange={handleInputChange}
+              canRevealPassword
             />
             <Input 
               label="Téléphone" 

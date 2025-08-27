@@ -63,9 +63,20 @@ const DossierPage = ({ params }: { params: Promise<{ id: string }> }) => {
   if (!patient?.patient) return <div>Patient non trouvé</div>;
 
   const patientData = patient.patient;
+  const formatDateString = (input: string): string => {
+    if (!input) return 'Non renseigné';
+    const isoMatch = /^\d{4}-\d{2}-\d{2}/.test(input);
+    if (isoMatch) return input.slice(0, 10);
+    const parsed = new Date(input);
+    if (isNaN(parsed.getTime())) return input;
+    const year = parsed.getFullYear();
+    const month = String(parsed.getMonth() + 1).padStart(2, '0');
+    const day = String(parsed.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
 
   return (
-    <div className="p-6 bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen">
+    <div className="p-6  from-gray-50 to-gray-100 min-h-screen">
       {/* Back button */}
       <Link href="/Page/dossier" 
             className="inline-flex items-center px-4 py-2 text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-all mb-6">
@@ -101,7 +112,7 @@ const DossierPage = ({ params }: { params: Promise<{ id: string }> }) => {
                 {[
                   { label: "Email", value: patientData.email },
                   { label: "Téléphone", value: patientData.numeroTelephone },
-                  { label: "Date de naissance", value: patientData.date_naissance || 'Non renseigné' },
+                  { label: "Date de naissance", value: patientData.date_naissance ? formatDateString(patientData.date_naissance as unknown as string) : 'Non renseigné' },
                   { label: "Adresse", value: patientData.adresse || 'Non renseignée' },
                   { label: "Emploi", value: patientData.emploi || 'Non renseigné' }
                 ].map((item, index) => (

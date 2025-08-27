@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { FaEye, FaEyeSlash } from 'react-icons/fa';
 
 interface InputProps {
   type: 'text' | 'email' | 'password' | 'checkbox' | 'textarea' | 'number' | 'tel' | 'date';
@@ -11,6 +12,7 @@ interface InputProps {
   className?: string;
   disabled?: boolean;
   error?: string;
+  canRevealPassword?: boolean;
 }
 
 const Input: React.FC<InputProps> = ({
@@ -24,10 +26,13 @@ const Input: React.FC<InputProps> = ({
   className = '',
   disabled = false,
   error,
+  canRevealPassword = false,
 }) => {
   const baseInputStyles = "w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent";
   const errorStyles = "border-red-500 focus:ring-red-500";
   const disabledStyles = "bg-gray-100 cursor-not-allowed";
+
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
 
   if (type === 'textarea') {
     return (
@@ -81,17 +86,42 @@ const Input: React.FC<InputProps> = ({
           {label} {required && <span className="text-red-500">*</span>}
         </label>
       )}
-      <input
-        type={type}
-        id={name}
-        name={name}
-        value={value as string}
-        onChange={onChange}
-        placeholder={placeholder}
-        required={required}
-        disabled={disabled}
-        className={`${baseInputStyles} ${error ? errorStyles : ''} ${disabled ? disabledStyles : ''} ${className}`}
-      />
+      {type === 'password' && canRevealPassword ? (
+        <div className="relative">
+          <input
+            type={isPasswordVisible ? 'text' : 'password'}
+            id={name}
+            name={name}
+            value={value as string}
+            onChange={onChange}
+            placeholder={placeholder}
+            required={required}
+            disabled={disabled}
+            className={`${baseInputStyles} pr-10 ${error ? errorStyles : ''} ${disabled ? disabledStyles : ''} ${className}`}
+          />
+          <button
+            type="button"
+            aria-label={isPasswordVisible ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+            onClick={() => setIsPasswordVisible((v) => !v)}
+            className="absolute inset-y-0 right-3 flex items-center text-gray-500 hover:text-gray-700"
+            tabIndex={-1}
+          >
+            {isPasswordVisible ? <FaEyeSlash /> : <FaEye />}
+          </button>
+        </div>
+      ) : (
+        <input
+          type={type}
+          id={name}
+          name={name}
+          value={value as string}
+          onChange={onChange}
+          placeholder={placeholder}
+          required={required}
+          disabled={disabled}
+          className={`${baseInputStyles} ${error ? errorStyles : ''} ${disabled ? disabledStyles : ''} ${className}`}
+        />
+      )}
       {error && <span className="mt-1 text-sm text-red-500">{error}</span>}
     </div>
   );

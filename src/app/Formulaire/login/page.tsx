@@ -35,7 +35,10 @@ export default function Login() {
       localStorage.setItem('user', JSON.stringify(data.user));
       
       toast.success('Connexion réussie !');
-      setTimeout(() => router.push('/Page'), 1500);
+      
+      // Redirect based on role ID
+      const redirectPath = data.user.role_id === 1 ? '/Page' : '/Page/rendez_vous';
+      setTimeout(() => router.push(redirectPath), 1500);
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Erreur de connexion');
     } finally {

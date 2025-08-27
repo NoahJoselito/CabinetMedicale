@@ -246,29 +246,35 @@ export default function Dashboard() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {(Array.isArray(dashboardData.patients) ? dashboardData.patients : [])
-                  .slice(0, 5)
-                  .map((patient: any) => (
-                    <tr key={patient.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">
-                          {patient.name || 'N/A'}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <div className="text-sm text-gray-500">
-                          {patient.email || 'N/A'}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <div className="text-sm text-gray-500">
-                          {patient.created_at 
-                            ? new Date(patient.created_at).toLocaleDateString()
-                            : 'N/A'}
-                        </div>
-                      </td>
-                    </tr>
-                ))}
+                {((Array.isArray(dashboardData.patients) ? dashboardData.patients : []).length === 0) ? (
+                  <tr>
+                    <td colSpan={3} className="px-4 py-6 text-center text-sm text-gray-500">Aucun patient pour le moment.</td>
+                  </tr>
+                ) : (
+                  (Array.isArray(dashboardData.patients) ? dashboardData.patients : [])
+                    .slice(0, 5)
+                    .map((patient: any) => (
+                      <tr key={patient.id} className="hover:bg-gray-50">
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <div className="text-sm font-medium text-gray-900">
+                            {patient.name || 'N/A'}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <div className="text-sm text-gray-500">
+                            {patient.email || 'N/A'}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <div className="text-sm text-gray-500">
+                            {patient.created_at 
+                              ? new Date(patient.created_at).toLocaleDateString()
+                              : 'N/A'}
+                          </div>
+                        </td>
+                      </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -298,28 +304,34 @@ export default function Dashboard() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {(Array.isArray(dashboardData.appointments) ? dashboardData.appointments : [])
-                  .map((appointment, index) => (
-                    <tr key={appointment.id || index} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">
-                          {appointment.original_time || 'N/A'}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">
-                          {appointment.patientName}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <div className="text-sm text-gray-500">
-                          {typeof appointment.service === 'string' 
-                            ? appointment.service 
-                            : appointment.service?.nom || 'N/A'}
-                        </div>
-                      </td>
-                    </tr>
-                ))}
+                {((Array.isArray(dashboardData.appointments) ? dashboardData.appointments : []).length === 0) ? (
+                  <tr>
+                    <td colSpan={3} className="px-4 py-6 text-center text-sm text-gray-500">Aucun rendez-vous pour le moment.</td>
+                  </tr>
+                ) : (
+                  (Array.isArray(dashboardData.appointments) ? dashboardData.appointments : [])
+                    .map((appointment, index) => (
+                      <tr key={appointment.id || index} className="hover:bg-gray-50">
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">
+                            {appointment.original_time || 'N/A'}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <div className="text-sm font-medium text-gray-900">
+                            {appointment.patientName}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <div className="text-sm text-gray-500">
+                            {typeof appointment.service === 'string' 
+                              ? appointment.service 
+                              : appointment.service?.nom || 'N/A'}
+                          </div>
+                        </td>
+                      </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
