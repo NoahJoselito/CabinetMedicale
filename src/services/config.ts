@@ -47,6 +47,12 @@ export const ENDPOINTS = {
       STATUS: `/payments`,
     },
   },
+  MEDICAL_PHOTOS: {
+    LIST: (patientId: number) => `/medical-photos/patient/${patientId}`,
+    UPLOAD: '/medical-photos/upload',
+    DELETE: (id: number) => `/medical-photos/${id}`,
+    GET_BY_ID: (id: number) => `/medical-photos/${id}`,
+  },
   APPOINTMENTS: {
     CREATE: '/rendezvous',
     LIST: '/rendezvous',

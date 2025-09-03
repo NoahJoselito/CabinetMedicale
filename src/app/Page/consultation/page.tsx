@@ -435,7 +435,7 @@ export default function DossierMedical() {
             <table className="min-w-full bg-white">
               <thead>
                 <tr className="bg-gray-100 text-gray-600 uppercase text-sm leading-normal">
-                  <th className="py-3 px-6 text-left">Patient</th>
+                  <th className="py-3 px-6 text-left">Patient / Docteur</th>
                   <th className="py-3 px-6 text-left">Traitement</th>
                   <th className="py-3 px-6 text-right">Montant</th>
                   <th className="py-3 px-6 text-center">Statut</th>
@@ -448,7 +448,19 @@ export default function DossierMedical() {
                   currentItems.map((consultation) => (
                     <tr key={consultation.id} className="border-b border-gray-200 hover:bg-gray-50">
                       <td className="py-3 px-6 text-left">
-                        {consultation.patient.name} {consultation.patient.prenom}
+                        <div>
+                          <div className="font-medium text-gray-900">
+                            {consultation.patient.name} {consultation.patient.prenom}
+                          </div>
+                          {consultation.docteur && (
+                            <div className="text-sm text-gray-500">
+                              Dr. {consultation.docteur.prenom} {consultation.docteur.name}
+                              {consultation.docteur.specialité && (
+                                <span> - {consultation.docteur.specialité}</span>
+                              )}
+                            </div>
+                          )}
+                        </div>
                       </td>
                       <td className="py-3 px-6 text-left">
                         {consultation.traitements.map(t => t.nom).join(', ')}

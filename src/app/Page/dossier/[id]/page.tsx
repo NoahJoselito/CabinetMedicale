@@ -1,8 +1,9 @@
 "use client";
 import { useEffect, useState, use } from "react";
-import { Folder, ArrowLeft, User, FileText, Stethoscope } from "lucide-react";
+import { Folder, ArrowLeft, User, FileText, Stethoscope, Camera, Upload, X, Calendar, Image as ImageIcon, ZoomIn } from "lucide-react";
 import Link from "next/link";
 import { dossierService, PatientDetail } from "@/services/dossierService";
+import { medicalPhotoService, MedicalPhoto } from "@/services/medicalPhotoService";
 
 const LoadingSpinner = () => (
   <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100">
@@ -41,12 +42,34 @@ const DossierPage = ({ params }: { params: Promise<{ id: string }> }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [patient, setPatient] = useState<PatientDetail | null>(null);
+  const [photos, setPhotos] = useState<MedicalPhoto[]>([]);
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [uploading, setUploading] = useState(false);
+  const [showUploadForm, setShowUploadForm] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [photoType, setPhotoType] = useState("");
+  const [photoDescription, setPhotoDescription] = useState("");
+  const [uploadDate, setUploadDate] = useState(new Date().toISOString().split('T')[0]);
+  const [selectedPhoto, setSelectedPhoto] = useState<MedicalPhoto | null>(null);
 
   useEffect(() => {
+    // Récupérer l'utilisateur connecté pour fallback docteur
+    try {
+      const userStr = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
+      const user = userStr ? JSON.parse(userStr) : null;
+      setCurrentUser(user);
+    } catch (_) {
+      setCurrentUser(null);
+    }
+
     const fetchPatientDetails = async () => {
       try {
         const data = await dossierService.getPatientDetails(resolvedParams.id);
         setPatient(data);
+        
+        // Charger les photos du patient
+        const patientPhotos = await medicalPhotoService.getPatientPhotos(data.patient.id);
+        setPhotos(patientPhotos);
       } catch (err) {
         setError('Erreur lors du chargement des données du patient');
         console.error(err);
@@ -75,6 +98,86 @@ const DossierPage = ({ params }: { params: Promise<{ id: string }> }) => {
     return `${year}-${month}-${day}`;
   };
 
+  const photoTypes = [
+    "Radiographie",
+    "Échographie", 
+    "Scanner",
+    "IRM",
+    "Photo clinique",
+    "Photo de blessure",
+    "Photo de cicatrice",
+    "Autre"
+  ];
+
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setSelectedFile(file);
+    }
+  };
+
+  const handleUpload = async () => {
+    if (!selectedFile || !photoType || !patient) return;
+
+    setUploading(true);
+    try {
+      const uploadData = {
+        patient_id: patient.patient.id,
+        photo_type: photoType,
+        photo: selectedFile,
+        description: photoDescription,
+        upload_date: uploadDate
+      };
+
+      const newPhoto = await medicalPhotoService.uploadPhoto(uploadData);
+      setPhotos(prev => [newPhoto, ...prev]);
+      
+      // Reset form
+      setSelectedFile(null);
+      setPhotoType("");
+      setPhotoDescription("");
+      setUploadDate(new Date().toISOString().split('T')[0]);
+      setShowUploadForm(false);
+    } catch (err) {
+      console.error('Erreur lors de l\'upload:', err);
+      alert('Erreur lors de l\'upload de la photo');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleDeletePhoto = async (photoId: number) => {
+    if (confirm('Êtes-vous sûr de vouloir supprimer cette photo ?')) {
+      try {
+        await medicalPhotoService.deletePhoto(photoId);
+        setPhotos(prev => prev.filter(photo => photo.id !== photoId));
+      } catch (err) {
+        console.error('Erreur lors de la suppression:', err);
+        alert('Erreur lors de la suppression de la photo');
+      }
+    }
+  };
+
+  const handlePhotoClick = (photo: MedicalPhoto) => {
+    setSelectedPhoto(photo);
+  };
+
+  const closeModal = () => {
+    setSelectedPhoto(null);
+  };
+
+  // Déterminer le médecin traitant (du dossier):
+  // 1) docteur de la consultation la plus récente s'il existe
+  // 2) sinon utilisateur connecté comme fallback
+  const treatingDoctor = (() => {
+    const consultations = patient?.patient?.consultations || [];
+    const sorted = Array.isArray(consultations)
+      ? [...consultations].sort((a: any, b: any) => new Date(b.date_consultation).getTime() - new Date(a.date_consultation).getTime())
+      : [];
+    const fromConsult = sorted.find((c: any) => !!c?.docteur)?.docteur;
+    return fromConsult || currentUser || null;
+  })();
+
   return (
     <div className="p-6  from-gray-50 to-gray-100 min-h-screen">
       {/* Back button */}
@@ -95,6 +198,14 @@ const DossierPage = ({ params }: { params: Promise<{ id: string }> }) => {
               {`${patientData.name} ${patientData.prenom}`}
             </h1>
             <p className="text-gray-500">Dossier médical</p>
+            {treatingDoctor && (
+              <p className="text-sm text-gray-600 mt-1">
+                <span className="font-medium">Médecin traitant :</span> Dr. {treatingDoctor?.prenom || ''} {treatingDoctor?.name || ''}
+                {treatingDoctor?.specialité && (
+                  <span className="text-gray-500"> - {treatingDoctor.specialité}</span>
+                )}
+              </p>
+            )}
           </div>
         </div>
 
@@ -146,6 +257,180 @@ const DossierPage = ({ params }: { params: Promise<{ id: string }> }) => {
           </div>
         </div>
 
+        {/* Medical Photos Section */}
+        <div className="mt-6 bg-white rounded-xl shadow-lg border border-gray-100 text-gray-800">
+          <div className="p-6 border-b border-gray-100 flex justify-between items-center">
+            <h2 className="text-xl font-semibold flex items-center text-gray-800">
+              <Camera className="w-6 h-6 mr-3 text-blue-500" /> 
+              Photos médicales
+            </h2>
+            <button
+              onClick={() => setShowUploadForm(!showUploadForm)}
+              className="cursor-pointer inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              <Upload className="w-4 h-4 mr-2" />
+              Ajouter une photo
+            </button>
+          </div>
+
+          {/* Upload Form */}
+          {showUploadForm && (
+            <div className="p-6 border-b border-gray-100 bg-gray-50">
+              <div className="grid md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Type de photo *
+                  </label>
+                  <select
+                    value={photoType}
+                    onChange={(e) => setPhotoType(e.target.value)}
+                    className="cursor-pointer w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="">Sélectionner un type</option>
+                    {photoTypes.map((type) => (
+                      <option key={type} value={type}>{type}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Date d'upload
+                  </label>
+                  <div className="relative">
+                    <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                    <input
+                      type="date"
+                      value={uploadDate}
+                      onChange={(e) => setUploadDate(e.target.value)}
+                      className="w-full p-3 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Description (optionnel)
+                  </label>
+                  <textarea
+                    value={photoDescription}
+                    onChange={(e) => setPhotoDescription(e.target.value)}
+                    placeholder="Description de la photo..."
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    rows={3}
+                  />
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Sélectionner une photo *
+                  </label>
+                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-400 transition-colors">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleFileSelect}
+                      className="hidden"
+                      id="photo-upload"
+                    />
+                    <label htmlFor="photo-upload" className="cursor-pointer">
+                      {selectedFile ? (
+                        <div className="space-y-2">
+                          <ImageIcon className="w-12 h-12 mx-auto text-blue-500" />
+                          <p className="text-sm text-gray-600">{selectedFile.name}</p>
+                          <p className="text-xs text-gray-500">
+                            {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          <Upload className="w-12 h-12 mx-auto text-gray-400" />
+                          <p className="text-sm text-gray-600">
+                            Cliquez pour sélectionner une image
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            PNG, JPG, JPEG jusqu'à 10MB
+                          </p>
+                        </div>
+                      )}
+                    </label>
+                  </div>
+                </div>
+
+                <div className="md:col-span-2 flex space-x-3">
+                  <button
+                    onClick={handleUpload}
+                    disabled={!selectedFile || !photoType || uploading}
+                    className="cursor-pointer flex-1 bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {uploading ? 'Upload en cours...' : 'Uploader la photo'}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowUploadForm(false);
+                      setSelectedFile(null);
+                      setPhotoType("");
+                      setPhotoDescription("");
+                      setUploadDate(new Date().toISOString().split('T')[0]);
+                    }}
+                    className="cursor-pointer px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    Annuler
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Photos Grid */}
+          <div className="p-6">
+            {!Array.isArray(photos) || photos.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                <Camera className="w-16 h-16 mx-auto mb-4 text-gray-300" />
+                <p>Aucune photo médicale disponible</p>
+                <p className="text-sm">Ajoutez la première photo en cliquant sur "Ajouter une photo"</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {photos.map((photo) => (
+                  <div key={photo.id} className="bg-gray-50 rounded-lg overflow-hidden hover:shadow-md transition-shadow">
+                    <div className="relative group">
+                      <img
+                        src={photo.photo_path}
+                        alt={`Photo médicale - ${photo.photo_type}`}
+                        className="w-full h-48 object-cover cursor-pointer transition-transform group-hover:scale-105"
+                        onClick={() => handlePhotoClick(photo)}
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.src = '/img/placeholder-medical.svg';
+                        }}
+                      />
+                      <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all flex items-center justify-center">
+                        <ZoomIn className="w-8 h-8 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                      </div>
+                      <button
+                        onClick={() => handleDeletePhoto(photo.id)}
+                        className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full hover:bg-red-600 transition-colors"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                    <div className="p-4">
+                      <h3 className="font-semibold text-blue-600 mb-2">{photo.photo_type}</h3>
+                      <p className="text-sm text-gray-600 mb-2">
+                        {new Date(photo.upload_date).toLocaleDateString('fr-FR')}
+                      </p>
+                      {photo.description && (
+                        <p className="text-sm text-gray-500">{photo.description}</p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
         {/* Consultations */}
         <div className="mt-6 bg-white rounded-xl shadow-lg border border-gray-100 text-gray-800">
           <div className="p-6 border-b border-gray-100">
@@ -160,13 +445,26 @@ const DossierPage = ({ params }: { params: Promise<{ id: string }> }) => {
                 <div key={consultation.id} 
                      className="bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl p-6 hover:shadow-md transition-all">
                   <div className="flex justify-between items-start mb-4">
-                    <h3 className="text-lg font-semibold text-blue-600">
-                      Consultation du {new Date(consultation.date_consultation).toLocaleDateString('fr-FR', {
-                        day: 'numeric',
-                        month: 'long',
-                        year: 'numeric'
-                      })}
-                    </h3>
+                    <div>
+                      <h3 className="text-lg font-semibold text-blue-600">
+                        Consultation du {new Date(consultation.date_consultation).toLocaleDateString('fr-FR', {
+                          day: 'numeric',
+                          month: 'long',
+                          year: 'numeric'
+                        })}
+                      </h3>
+                      {(() => {
+                        const doc = consultation.docteur || treatingDoctor;
+                        return doc ? (
+                          <p className="text-sm text-gray-600 mt-1">
+                            <span className="font-medium">Docteur :</span> Dr. {doc.prenom || ''} {doc.name || ''}
+                            {doc.specialité && (
+                              <span className="text-gray-500"> - {doc.specialité}</span>
+                            )}
+                          </p>
+                        ) : null;
+                      })()}
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
@@ -189,6 +487,45 @@ const DossierPage = ({ params }: { params: Promise<{ id: string }> }) => {
           </div>
         </div>
       </div>
+
+      {/* Photo Modal */}
+      {selectedPhoto && (
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl max-w-4xl max-h-[90vh] overflow-hidden">
+            <div className="p-4 border-b border-gray-200 flex justify-between items-center">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-800">{selectedPhoto.photo_type}</h3>
+                <p className="text-sm text-gray-500">
+                  {new Date(selectedPhoto.upload_date).toLocaleDateString('fr-FR')}
+                </p>
+              </div>
+              <button
+                onClick={closeModal}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors "
+              >
+                <X className="w-6 h-6 cursor-pointer" />
+              </button>
+            </div>
+            <div className="p-4">
+              <img
+                src={selectedPhoto.photo_path}
+                alt={`Photo médicale - ${selectedPhoto.photo_type}`}
+                className="w-full h-auto max-h-[70vh] object-contain"
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  target.src = '/img/placeholder-medical.svg';
+                }}
+              />
+              {selectedPhoto.description && (
+                <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+                  <h4 className="font-semibold text-gray-800 mb-2">Description :</h4>
+                  <p className="text-gray-600">{selectedPhoto.description}</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

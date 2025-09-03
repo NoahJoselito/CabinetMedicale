@@ -210,7 +210,7 @@ export default function Profil() {
   return (
     <div className="min-h-screen from-slate-50 to-white p-4 md:p-8">
       <div className="mx-auto max-w-6xl">
-        <div className="relative overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-100">
+        <div className="relative overflow-hidden rounded-2xl bg-white/90 shadow-sm ring-1 ring-slate-100">
           {/* Hero / Cover */}
           <div className="relative h-36 md:h-44 w-full ">
             <div className="absolute inset-0 opacity-20 pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle at 20% 20%, white 2px, transparent 2px)' }} />

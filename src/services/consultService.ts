@@ -103,6 +103,7 @@ export interface Consultation {
     date: string;
     type: 'espece' | 'mobilemoney' | 'prisencharge';
   }>;
+  docteur_id?: number; // Ajout du docteur_id
 }
 
 export interface ConsultationResponse {
@@ -112,6 +113,13 @@ export interface ConsultationResponse {
   seanceCount: number;
   id: number;
   user_id: number;
+  docteur_id?: number; // Ajout du docteur_id
+  docteur?: { // Ajout des informations du docteur
+    id: number;
+    name: string;
+    prenom: string;
+    specialité?: string;
+  };
   date_consultation: string;
   nb_seances: number;
   seancerestant: number | null;
@@ -324,6 +332,11 @@ export const consultService = {
   createConsultation: async (consultationData: Consultation): Promise<ConsultationResponse> => {
     try {
       const defaultPassword = 'DefaultPass123!';
+      
+      // Récupérer l'utilisateur connecté depuis localStorage
+      const userStr = localStorage.getItem('user');
+      const currentUser = userStr ? JSON.parse(userStr) : null;
+      
       const formattedData = {
         patient: {
           name: consultationData.patient.name || '',
@@ -355,7 +368,8 @@ export const consultService = {
             type: 'espece'
           }] : []),
           ...consultationData.paiements
-        ]
+        ],
+        docteur_id: currentUser?.id || consultationData.docteur_id // Ajouter l'ID du docteur
       };
 
       // Validate required fields

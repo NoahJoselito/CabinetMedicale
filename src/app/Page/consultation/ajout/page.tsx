@@ -8,6 +8,7 @@ import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { useRouter } from 'next/navigation';
 import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 interface Antecedent {
   id: number;
@@ -252,6 +253,10 @@ const ConsultationAjoutPage: React.FC = () => {
     
     setIsSubmittingConsultation(true);
     try {
+      // Récupérer l'utilisateur connecté depuis localStorage
+      const userStr = localStorage.getItem('user');
+      const currentUser = userStr ? JSON.parse(userStr) : null;
+      
       const consultationData = {
         patient: {
           id: selectedPatient.id,
@@ -273,12 +278,29 @@ const ConsultationAjoutPage: React.FC = () => {
         produits: selectedProducts,
         paiements: [],
         paiement_initial: 0,
+        docteur_id: currentUser?.id, // Ajouter l'ID du docteur connecté
+        // Transmettre aussi les métadonnées du docteur pour affichage immédiat côté client
+        docteur: currentUser ? {
+          id: currentUser.id,
+          name: currentUser.name,
+          prenom: currentUser.prenom,
+          specialité: currentUser.specialité || '',
+        } : undefined,
 
         total: (total: any) => total
       };
 
       const createdConsultation = await consultService.createConsultation(consultationData);
-      setLastConsultation(createdConsultation); // Stocker la consultation pour impression
+      // S'assurer que la consultation sauvegardée contient bien les infos du docteur pour le PDF
+      const enrichedConsultation = {
+        ...createdConsultation,
+        docteur: createdConsultation?.docteur || consultationData.docteur || currentUser || null,
+        consultation: createdConsultation?.consultation ? {
+          ...createdConsultation.consultation,
+          docteur: createdConsultation?.consultation?.docteur || consultationData.docteur || currentUser || null,
+        } : createdConsultation?.consultation,
+      };
+      setLastConsultation(enrichedConsultation); // Stocker la consultation pour impression
       
       toast.success('Consultation créée avec succès!', {
         position: "top-right",
@@ -422,28 +444,29 @@ const handleDownloadConsultationPDF = () => {
 
   const doc = new jsPDF();
 
-  // === 1️⃣ LOGO ===
+  // Logo
   const logoBase64 = 'data:image/webp;base64,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';
   doc.addImage(logoBase64, 'PNG', 10, 10, 40, 20);
 
-  // === 2️⃣ TITRE ===
+  // Title
   doc.setFontSize(18);
   doc.setFont('helvetica', 'bold');
   doc.text('Fiche Consultation', 105, 20, { align: 'center' });
-
-  // === 3️⃣ LIGNE SÉPARATION ===
   doc.setDrawColor(0);
   doc.line(10, 35, 200, 35);
 
   doc.setFontSize(12);
   doc.setFont('helvetica', 'normal');
 
-  // === 4️⃣ Données Patient ===
+  // Data extraction
   const patient =
     lastConsultation.patient ||
     lastConsultation.consultation?.patient ||
     lastConsultation.consultation?.patient_id ||
     {};
+  const userStr = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
+  const currentUser = userStr ? JSON.parse(userStr) : null;
+  const docteur = lastConsultation.docteur || lastConsultation.consultation?.docteur || currentUser || {};
 
   const prenom = patient.prenom || '';
   const nom = patient.name || '';
@@ -468,85 +491,104 @@ const handleDownloadConsultationPDF = () => {
     lastConsultation.consultation?.tension ||
     '';
 
-  let y = 45;
+  // Patient + Doctor info table
+  autoTable(doc, {
+    startY: 42,
+    head: [['Champ', 'Valeur']],
+    body: [
+      ['Docteur', `Dr. ${(docteur?.prenom || '')} ${(docteur?.name || '')}`.trim()],
+      ['Spécialité', `${docteur?.specialité || ''}`],
+      ['Patient', `${prenom} ${nom}`.trim()],
+      ['Date consultation', `${dateConsult}`],
+      ['Nombre de séances', `${nbSeances}`],
+      ['Température', `${temperature}`],
+      ['Tension', `${tension}`],
+    ],
+    styles: { font: 'helvetica', fontSize: 11 },
+    headStyles: { fillColor: [59, 130, 246], textColor: 255 },
+    alternateRowStyles: { fillColor: [245, 247, 250] },
+    theme: 'striped',
+    margin: { left: 10, right: 10 },
+  });
 
-  doc.text(`Patient : ${prenom} ${nom}`, 10, y);
-  y += 8;
-  doc.text(`Date consultation : ${dateConsult}`, 10, y);
-  y += 8;
-  doc.text(`Nombre de séances : ${nbSeances}`, 10, y);
-  y += 8;
-  doc.text(`Température : ${temperature}`, 10, y);
-  y += 8;
-  doc.text(`Tension : ${tension}`, 10, y);
-  y += 8;
+  let y = (doc as any).lastAutoTable.finalY + 6 || 48;
 
-  // === 5️⃣ Observation ===
-  doc.setFont('helvetica', 'bold');
-  doc.text('Observation :', 10, y);
-  doc.setFont('helvetica', 'normal');
-  y += 6;
-  doc.text(doc.splitTextToSize(observation, 180), 10, y);
-  y += observation.length > 50 ? 12 : 8;
+  // Observation block
+  autoTable(doc, {
+    startY: y,
+    head: [['Observation']],
+    body: [[observation || '']],
+    styles: { cellWidth: 'wrap' },
+    columnStyles: { 0: { cellWidth: 190 } },
+    headStyles: { fillColor: [16, 185, 129], textColor: 255 },
+    theme: 'grid',
+    margin: { left: 10, right: 10 },
+  });
 
-  // === 6️⃣ Antécédents ===
+  y = (doc as any).lastAutoTable.finalY + 8;
+
+  // Antécédents table
   const antecedents =
     lastConsultation.antecedents ||
     lastConsultation.consultation?.antecedents ||
     [];
-
   if (antecedents && antecedents.length > 0) {
-    doc.setFont('helvetica', 'bold');
-    doc.text('Antécédents :', 10, y);
-    y += 6;
-    doc.setFont('helvetica', 'normal');
-    antecedents.forEach((ant: any) => {
-      doc.text(`- ${ant.titre}${ant.description ? ' : ' + ant.description : ''}`, 12, y);
-      y += 6;
+    autoTable(doc, {
+      startY: y,
+      head: [['Titre', 'Description']],
+      body: antecedents.map((a: any) => [a.titre || '', a.description || '']),
+      headStyles: { fillColor: [99, 102, 241], textColor: 255 },
+      alternateRowStyles: { fillColor: [245, 247, 250] },
+      theme: 'striped',
+      margin: { left: 10, right: 10 },
     });
+    y = (doc as any).lastAutoTable.finalY + 8;
   }
 
-  // === 7️⃣ Traitements ===
+  // Traitements table
   const traitements =
     lastConsultation.traitements ||
     lastConsultation.consultation?.traitements ||
     [];
   if (traitements && traitements.length > 0) {
-    doc.setFont('helvetica', 'bold');
-    doc.text('Traitements :', 10, y);
-    y += 6;
-    doc.setFont('helvetica', 'normal');
-    traitements.forEach((t: any) => {
-      doc.text(`- ${t.nom || t.titre || ''}`, 12, y);
-      y += 6;
+    autoTable(doc, {
+      startY: y,
+      head: [['Traitement', 'Prix']],
+      body: traitements.map((t: any) => [
+        t.nom || t.titre || '',
+        (t.prixprisenchager != null && (patient?.numerodossierprisenchage))
+          ? `${Number(t.prixprisenchager).toFixed(2)} Ar`
+          : `${Number(t.prix).toFixed(2)} Ar`
+      ]),
+      headStyles: { fillColor: [59, 130, 246], textColor: 255 },
+      alternateRowStyles: { fillColor: [245, 247, 250] },
+      theme: 'striped',
+      margin: { left: 10, right: 10 },
     });
+    y = (doc as any).lastAutoTable.finalY + 8;
   }
 
-  // === 8️⃣ Produits ===
+  // Produits table
   const produits =
     lastConsultation.produits ||
     lastConsultation.consultation?.produits ||
     [];
   if (produits && produits.length > 0) {
-    doc.setFont('helvetica', 'bold');
-    doc.text('Médicaments :', 10, y);
-    y += 6;
-    doc.setFont('helvetica', 'normal');
-    produits.forEach((p: any) => {
-      doc.text(`- ${p.nom || ''}`, 12, y);
-      y += 6;
+    autoTable(doc, {
+      startY: y,
+      head: [['Médicament', 'Prix']],
+      body: produits.map((p: any) => [p.nom || '', `${Number(p.prix || 0).toFixed(2)} Ar`]),
+      headStyles: { fillColor: [59, 130, 246], textColor: 255 },
+      alternateRowStyles: { fillColor: [245, 247, 250] },
+      theme: 'striped',
+      margin: { left: 10, right: 10 },
     });
+    y = (doc as any).lastAutoTable.finalY + 8;
   }
 
-  // === 9️⃣ Footer ===
+  // Footer
   doc.setFontSize(10);
-  doc.text(
-    `Document généré le ${new Date().toLocaleDateString()}`,
-    105,
-    290,
-    { align: 'center' }
-  );
-
+  doc.text(`Document généré le ${new Date().toLocaleDateString()}`, 105, 290, { align: 'center' });
   doc.save(`Fiche_Consultation_${prenom}_${nom}.pdf`);
 };
 
@@ -556,28 +598,29 @@ const handleDownloadConsultationPDF = () => {
 
   const doc = new jsPDF();
 
-  // === 1️⃣ LOGO ===
+  // Logo
   const logoBase64 = 'data:image/webp;base64,UklGRrgNAABXRUJQVlA4IKwNAABwTACdASoEARgBPjEYi0QiIaER6VyMIAMEs7dwuqiIzg/qv4gbMF1H8gPxu5IzvJ+0n9u6jQ1vU39d/JL+oe9z+O+yL8yf6T3AP0A/vv8560vmA/i39U/z/+G93z0AegB/Mv8/1kf66ewB+0vpOfr78GH7aftJ7Sf/m1pbyF/We0H+mfkv1eneP2Q5FcR3459L/tH5g/2L2V/yvhXwAvxv+R/178sf7V+2vGgywfjN8AXsT8h/s/9c/Xv+9ec3+m+jfiAfxv+Y/438x/7dzxfinsAfyv+sf5H+0fs5/cf//9rX8R/sP8N+UHtQ/Mf8B/z/8n8A/8l/lf98/rv+F/4n99////i+632BftP7Gf6rjAI11f8aVyL5B4GuujXV/xpXIvYrEtSVIQNddGur/BN81nuusU/0/tekK+ri9njSe6TeaUiNdX/DQeTj4ogHh4dHKkMDbqYUXyDvrO3EghJHeBeMU2VXBVuwa37yKEHga66KyDPRC325xWrVWU6SC/xpXIMBFe2ZrxLbHnvKm7VjNbkaagfbUCzSI11QoSaqaie8vl1lPCgogauSrp/jSt/hVxkrsD0DljNQgoAEYorDLsHmzk3rxpW/rQpRvubhhkyWkArXwSvDU2eHFiPr/lcY110a5IqJrMQvFfw8bR8KL5B4FO+l9iTI4Q6m3X6JYaYpcyI11f8aVSZTgAQXpkS8SJulbo11f8aVyL5B4GuujXV/xpXIvjTq1Gpg+I1QjWdEYejNOY8iuTutsbRmpB+uRXbLKiUfWlsaVyDnSvUQ2XhKzQ9cVRrxk0h54CjFJ7xqC+UrNwYaGr+4AAD+/+GVgAIOCKF0ZjS7OgNLcHHeGPjXr5XV4m9YIRhFkggKeyRDGL8WHt7OThUxAvNtttptU9zp2kyo+Q1iXI5waeE0SdubmSdodeqHSLyURYtP8DRXbVz0m8f6tEe/rOfaFxySGWB32CkH0I5fNLFmIkHfm+n82KVNQAF//yIXA85tuv1Z1V4+ymsFzawi0uZQC3VLEth/mZg4MpJ1B+/MWWaTbg7dk2rvkXFGgzESVs2VRBQAPsRvvYzWrQJDhPEmN4dPe9/vdTetOOoIbKqLH3Os023uZqNZtzaaYf5+Rz1ABIA3+KKwy9f9ERIXTdziTuk3BKPxRUUvBQ7duyRe/OM3IrFXyKiihbnGcpVzwyd+Ikvb/cq6MQ0dkcpqUrpNvU63zulWEbxkSojrhU5bAdjyhtTyuaqR0/WESY5yTp068bQcjjH/rYAO1508ou5enZNuB2RUVjp1dJt8+q+P075CFDXjYS1DS9EUUuOcllRNexL2NB7qyKOnDWdm16baC1ADHbuIiRhxm6QOvJac+EGDI4G0Dkdb2ZnZyiG4deIwKurpY49uRmtPqlguK2KJwsd7Mzh39dyXx0vPDMcfQXrabgSCzyBPN74rdKMncI9tY+VBB5HVLLsHflsGlmAOgawcjS8d29XMMi19BI5M/88bSxJUIdAV1HMFr0H1cWWc+SAe4cuBQWmB4dRyVnRXgFQU2Ccwp9LLLOxMgZ0drc8gJY5f8x1MzZLilm18NX7BLHFd/KKTI2xc76FRz4635fXdlTopjaOei5ZZqp1pkoVVf+0fC74FJ25PeGmv5Mjh8WZucyZhVH9by/mWN9fdpepYXbDhxXroV6bcNJP/muadi8IdBLMhA94QPYJIX1b17PWsLQDBMTjoUJ09FalgyCgfZUzW0XRVV673dxumR1QCDppRnL+YsxOklAb1sFXd55tZkbWd/1u7jZ5oNY6D9RqIFxE59whJW4BmmI/Zo9IUesrcHH+BHNeVsQ2HN6d2Gmxxvxw/qVd/DlSH5b/dU//daJ0gUKvcFrDP1SmS6uTi055F5IcweNd1ZZrZpKaX8N0nm8cXZp2PHhmjnG0dlJXk6zINfYO9gXh1W+rWICswF4j/0Zao+GPeWYptknGG3bTZpRbMC93QZknN/dU+UhjMRLs60SUPYupNmNmkVHH7Zpqsxxc+pAKcJEJeoWk1TGW9jOYYfTipf8l8dLeIpF9N07yw47/oSQB1HALMdY+f30Ic83dPwr/eyxP5fwNNeciHa6AG3OO2vJx10WsxsTaktQfSw7pjdLJOZk9snQQSsfMdTM2S4nOKUN7WO6LsxRgPHe5dwstVb2vVC8IGo6eiwZo6tcqtzj7IZSNx0+l6V/0gdnZBIsTGVJIRQ5xSI+hLHNr4YC7nsCSzaAAB0HG3H7vxj70n09fg4nH/SAcmogoz2Wl+KyrIRSBkjKyIYN9Evsc96tD4fwdQmH5mm3VK/3nMm1L56gtdkCWRAOPfr720bpHpWunY+3RdhoOpmxjlfHU1lb2D7QZRSjuSn1AtkjCaKR684R2zplumHd5e6tmATWaS1cEsK6q9lwIZETfamYBqmcY//APfo5vaku6/0Y8xkBZ7sV2WrjcEzH/OTALPAiZFMTFWcNIzjpfntH9gbIg93qitwMA9N5Upa8fkgxAN1aw+Kl0ZrJF85rahxqatUlPO62CaJXFdG6TgyhrKCuXq00R+Cm21AvzFiTtdF9tq1Xv1190tEm+YieY/q+Xb3BOFWB/ejwT2VTwcVhSXUd3RYbM0hEXyp343ZECieeymS+VQ7M8i0YbKxQsNpQzMEWoiEKOEKWWum4WkDVx0t0xqgz5ZdhjyEagUCm2Yj8cbNYNzpawYaQL6gN7vGKSFtXJgYf29YAHMMgxblyJwB/8veJQS3IfX7BhmwKg8gn2JSGni9QWrpdLjrFIrafI5f21BibA8QbDLTAK1NrTyhTZoZr9r2vFM1Ypn5Wfa3ijbx0coKxTgkvpnIA8QzV5uYV5dRmj9cchh/RxSBKeaSi0WWjFKogfHV6qEXufBkxkuXCT9kVIBT+WO4Tg6mZJ8+eAmFTcp59kTTMllBvTjIpFecFtEsD3BHTWJRpULSauwWFI2gI8AN96VU/GNQ1fvCLu5cW33vd6F06zK5pzYu+2mRO0nAOilHD4U8yBnC7fgNcmNvHlG09gOorMOrpkIwKPtOosmJrsgLDg2wq7vq+NhXg6fOz7GcipAeJtG8kgYuViiqbC2G5a/y88RvUl+fSP8uN1BNhgxRznItVQvjNToxzcdgpTfmOczB9jHz+wzP4iXrEN7iZLNVc+IpZr30bgE3P57SNoWgUBtoXsMQjmP9sWuIYAfoKLtFFD8FuPsnXKGj6hTy0KljNZIvnM/NqA2cdL63cJo/5zu9DXsXGIn7xD1BS5f0v0MzF+Kz9Bz5wc8fF1ebz/aS4/EnJHRwIEWAA3yd6d9ocNeA9iTdpvZf6SSVDqtstDr2T1WFs+t7k6yNKMtHIklUmFKfb7BUAYwOAA826kOv8qQiXL1VbOrunEldIVzpNMgl+QxSB3WfnIPz/2vpjRktMSfLHHAo3JDDD7fvOSWh2KE5oCTKTwLrYcRcx5enphE/Zpl5gPn16vxjM2zjzqwFaX6bL7/lgjbm7hVkvDHc1cAQVkAkXyYQo6CupPDX7VN6S8HKfBo4AUO48bj1jb+BIuUKNj0BkX/ocDozoOcwM5qoS4Ev8ZGJGAF9jsOfZcPA6tEIw1XP0B41PKC0uwARLRGuMQ16IN+mRZQG5yBKJtYu/3/HkKtSL7jyvYV8d/B7+mqcSlP8NFswo+0UGGr0CCA05zmttZMBMtLPYqY2RIfzc8w/jHyglKrGz2ceYafBvZHOL/8exucJTBdeYTQ6lf/59krSngixfKhKBx4TiqE4YiePfMT3KXbACYkcY1RG7nnEHBub/v45Kbe+rrNXvUVVJc22oleS7uUAP7KecBYwvCbAzfAbJBSer+vbRiHtP4nS33G8Mz9idItBiZ8JfIz7DDEJrkLQfXyfm00wKOYMbnSxeDqVQXJtkl2kMH9QMV6pYxNWhAF5vuuizqpXusOT6C/ZnSYiFIyt9JHN8k7lf5hktT9vXa0Ep15sdHI3MpJyKCoRXAXLbLorRvC8UXJtkl2rhnkIw6ORuZSTj82QUt1ImAy63q0Yrt3sUJNYPIKYxgIyqW71qvy5tvJVko8lqI6m9Ea9m5lIWDZUpLemaTuOEyal6pc2XXNYydowx5C0cfmCXaLzxcvRfZElBHdITm6sHJfOHgL+qCuOJe7Q9DeZgB4OocrKKCk1JWnCUpNsOAFH68+pnzoMeXuuTpdV7mZbwU3VZNRQxw8qiGjRGl7EK6zkxUaiZbV3qUxZORSjr7tRsC/juXe0Ol+XtvSZPiiixkgYa1uupXW+dTXuF91Syr78KNduz/NfQNXg5AwRRXqkkCbcXQN1cmetrkBy30tkb54Zc/AFV7TuWkzTotsSchv/CbasHcz/YHICDd8aU79/AOtzX+dirkxIegMnPqZpOfDOu+Y58LVh3m7Cdn7s+C5YEXyTqyPIJdH49fr6D4o6yCD7KDxBQshe0a5+QE6X4DI6srGCXQUMW/u58zsygqHSaJy4V6V/aZJEhnPUDPBMBKixd4r7UrkCXOga4Kx9D1GSGE1w5El5ySj7PWrGvSqy1anjSRPGH60W5TrokRS+VxP5X2McJhUHjWqWzR2dlnIIxOU0jh1aGLCn/xjwWOAdA00Eq1oMmxSxTDvQb0LnJve5yq1kZh4hZW2ckDHIIv5BHCvaJPMFA/vR60tUc3SeNyCcAAAAA==';
   doc.addImage(logoBase64, 'PNG', 10, 10, 40, 20);
 
-  // === 2️⃣ TITRE ===
+  // Title
   doc.setFontSize(18);
   doc.setFont('helvetica', 'bold');
   doc.text('Facture de Paiement', 105, 20, { align: 'center' });
-
-  // === 3️⃣ LIGNE SÉPARATION ===
   doc.setDrawColor(0);
   doc.line(10, 35, 200, 35);
 
   doc.setFontSize(12);
   doc.setFont('helvetica', 'normal');
 
-  // === 4️⃣ Données Patient ===
+  // Data extraction
   const patient =
     lastConsultation.patient ||
     lastConsultation.consultation?.patient ||
     lastConsultation.consultation?.patient_id ||
     {};
+  const userStr = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
+  const currentUser = userStr ? JSON.parse(userStr) : null;
+  const docteur = lastConsultation.docteur || lastConsultation.consultation?.docteur || currentUser || {};
 
   const prenom = patient.prenom || '';
   const nom = patient.name || '';
@@ -586,58 +629,85 @@ const handleDownloadConsultationPDF = () => {
     lastConsultation.consultation?.date_consultation ||
     '';
 
-  let y = 45;
+  // Header info table
+  autoTable(doc, {
+    startY: 42,
+    head: [['Champ', 'Valeur']],
+    body: [
+      ['Docteur', `Dr. ${(docteur?.prenom || '')} ${(docteur?.name || '')}`.trim()],
+      ['Spécialité', `${docteur?.specialité || ''}`],
+      ['Patient', `${prenom} ${nom}`.trim()],
+      ['Date consultation', `${dateConsult}`],
+    ],
+    styles: { font: 'helvetica', fontSize: 11 },
+    headStyles: { fillColor: [59, 130, 246], textColor: 255 },
+    alternateRowStyles: { fillColor: [245, 247, 250] },
+    theme: 'striped',
+    margin: { left: 10, right: 10 },
+  });
 
-  doc.text(`Patient : ${prenom} ${nom}`, 10, y);
-  y += 8;
-  doc.text(`Date consultation : ${dateConsult}`, 10, y);
-  y += 10;
+  let y = (doc as any).lastAutoTable.finalY + 8;
 
-  // === 5️⃣ Paiements ===
+  // Paiements table
   const paiements =
     lastConsultation.paiements ||
     lastConsultation.consultation?.paiements ||
     [];
 
   if (paiements && paiements.length > 0) {
-    doc.setFont('helvetica', 'bold');
-    doc.text('Détails Paiements :', 10, y);
-    y += 6;
-
-    doc.setFont('helvetica', 'normal');
-    paiements.forEach((pay: any) => {
-      doc.text(
-        `- ${pay.type || ''} : ${pay.montant || ''} Ar, le ${pay.date_paiement || pay.date || ''}`,
-        12,
-        y
-      );
-      y += 6;
+    autoTable(doc, {
+      startY: y,
+      head: [['Type', 'Montant (Ar)', 'Date']],
+      body: paiements.map((p: any) => [
+        p.type || '',
+        `${Number(p.montant || 0).toFixed(2)}`,
+        p.date_paiement || p.date || ''
+      ]),
+      headStyles: { fillColor: [16, 185, 129], textColor: 255 },
+      alternateRowStyles: { fillColor: [245, 247, 250] },
+      theme: 'striped',
+      margin: { left: 10, right: 10 },
     });
+    y = (doc as any).lastAutoTable.finalY + 8;
   } else {
-    doc.text('Aucun paiement enregistré.', 10, y);
-    y += 8;
+    autoTable(doc, {
+      startY: y,
+      body: [['Aucun paiement enregistré.']],
+      styles: { halign: 'left' },
+      theme: 'plain',
+      margin: { left: 10, right: 10 },
+    });
+    y = (doc as any).lastAutoTable.finalY + 8;
   }
 
-  // === 6️⃣ Total ===
-  const total =
+  // Totals table
+  const computedTotal =
     lastConsultation.total ||
     lastConsultation.consultation?.total ||
-    '';
+    0;
+  const totalPaid = Array.isArray(paiements)
+    ? paiements.reduce((s: number, p: any) => s + Number(p.montant || 0), 0)
+    : 0;
+  const remaining = Number(computedTotal) - Number(totalPaid);
 
-  y += 8;
-  doc.setFont('helvetica', 'bold');
-  doc.text(`Total à payer : ${total} Ar`, 10, y);
+  autoTable(doc, {
+    startY: y,
+    head: [['Intitulé', 'Montant (Ar)']],
+    body: [
+      ['Total', `${Number(computedTotal || 0).toFixed(2)}`],
+      ['Payé', `${Number(totalPaid).toFixed(2)}`],
+      ['Reste', `${Number(remaining).toFixed(2)}`],
+    ],
+    styles: { font: 'helvetica', fontSize: 12 },
+    headStyles: { fillColor: [234, 88, 12], textColor: 255 },
+    columnStyles: { 1: { halign: 'right' } },
+    theme: 'grid',
+    margin: { left: 10, right: 10 },
+  });
 
-  // === 7️⃣ Footer ===
+  // Footer
   doc.setFontSize(10);
-  doc.text(
-    `Document généré le ${new Date().toLocaleDateString()}`,
-    105,
-    290,
-    { align: 'center' }
-  );
-
-  // === 8️⃣ Sauvegarde ===
+  doc.text(`Document généré le ${new Date().toLocaleDateString()}`, 105, 290, { align: 'center' });
   doc.save(`Facture_${prenom}_${nom}.pdf`);
 };
 

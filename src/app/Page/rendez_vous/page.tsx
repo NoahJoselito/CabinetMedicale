@@ -53,7 +53,18 @@ export default function Home() {
     const loadAppointmentsCount = async () => {
       try {
         const appointments = await RDVService.getAllAppointments();
-        setAppointmentsCount(appointments.length);
+        // If current user is patient, only count their appointments
+        let currentUser: any = null;
+        try {
+          const userStr = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
+          currentUser = userStr ? JSON.parse(userStr) : null;
+        } catch (_) {
+          currentUser = null;
+        }
+        const count = (currentUser?.role_id === 4 && currentUser?.id)
+          ? appointments.filter(a => a.patient?.id === currentUser.id).length
+          : appointments.length;
+        setAppointmentsCount(count);
       } catch (error) {
         console.error('Error loading appointments count:', error);
       } finally {

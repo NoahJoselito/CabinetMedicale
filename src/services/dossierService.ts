@@ -34,6 +34,13 @@ export interface PatientDetail {
     consultations: Array<{
       id: number;
       user_id: number;
+      docteur_id?: number;
+      docteur?: {
+        id: number;
+        name: string;
+        prenom: string;
+        specialité?: string;
+      };
       date_consultation: string;
       nb_seances: number;
       total: string;

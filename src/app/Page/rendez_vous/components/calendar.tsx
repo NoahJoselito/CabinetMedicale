@@ -8,6 +8,7 @@ interface Appointment {
   date: string;
   heure: string;
   patient: {
+    id?: number;
     name: string;
     prenom: string;
   };
@@ -47,27 +48,51 @@ const Calendar = () => {
 
     try {
       const appointments = await RDVService.getAppointmentsByDate(dateStr);
+
+      // Filter these appointments by current patient if role is patient (role_id === 4)
+      let currentUser: any = null;
+      try {
+        const userStr = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
+        currentUser = userStr ? JSON.parse(userStr) : null;
+      } catch (_) {
+        currentUser = null;
+      }
+      const filteredForDay = (currentUser?.role_id === 4 && currentUser?.id)
+        ? appointments.filter(apt => apt.patient?.id === currentUser.id)
+        : appointments;
       // Store the appointments in state
       setDailyAppointments(prev => ({
         ...prev,
-        [dateStr]: appointments
+        [dateStr]: filteredForDay
       }));
-      return appointments;
+      return filteredForDay;
     } catch (error) {
       console.error('Error fetching appointments for day:', error);
       return [];
     }
   }
 
-  // Load appointments for the current month
+  // Load appointments for the current month and filter for patient if role is 4
   useEffect(() => {
     const loadMonthAppointments = async () => {
       setIsLoading(true);
       try {
         const data = await RDVService.getAppointmentsByMonth(currentYear, currentMonth + 1);
+        // Determine if current user is a patient
+        let currentUser: any = null;
+        try {
+          const userStr = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
+          currentUser = userStr ? JSON.parse(userStr) : null;
+        } catch (_) {
+          currentUser = null;
+        }
+
+        const filteredData = (currentUser?.role_id === 4 && currentUser?.id)
+          ? data.filter(apt => apt.patient?.id === currentUser.id)
+          : data;
         
         // Group appointments by date
-        const appointmentsByDate = data.reduce((acc: {[key: string]: Appointment[]}, apt) => {
+        const appointmentsByDate = filteredData.reduce((acc: {[key: string]: Appointment[]}, apt) => {
           if (!acc[apt.date]) {
             acc[apt.date] = [];
           }
@@ -76,7 +101,7 @@ const Calendar = () => {
         }, {});
 
         setDailyAppointments(appointmentsByDate);
-        setAppointments(data);
+        setAppointments(filteredData);
       } catch (error) {
         console.error("Error fetching appointments:", error);
         setError("Impossible de charger les rendez-vous. Veuillez réessayer plus tard.");
@@ -168,15 +193,27 @@ const Calendar = () => {
     });
   };
 
-  // Load initial appointments for each day
+  // Load initial appointments for each day and filter for patient if role is 4
   useEffect(() => {
     const loadAllAppointments = async () => {
       setIsLoading(true);
       try {
         const allAppointments = await RDVService.getAllAppointments();
+
+        let currentUser: any = null;
+        try {
+          const userStr = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
+          currentUser = userStr ? JSON.parse(userStr) : null;
+        } catch (_) {
+          currentUser = null;
+        }
+
+        const filteredAll = (currentUser?.role_id === 4 && currentUser?.id)
+          ? allAppointments.filter(apt => apt.patient?.id === currentUser.id)
+          : allAppointments;
         
         // Group appointments by date
-        const appointmentsByDate = allAppointments.reduce((acc: {[key: string]: Appointment[]}, apt) => {
+        const appointmentsByDate = filteredAll.reduce((acc: {[key: string]: Appointment[]}, apt) => {
           if (!acc[apt.date]) {
             acc[apt.date] = [];
           }
@@ -185,7 +222,7 @@ const Calendar = () => {
         }, {});
 
         setDailyAppointments(appointmentsByDate);
-        setAppointments(allAppointments);
+        setAppointments(filteredAll);
         setIsLoading(false);
       } catch (error) {
         console.error('Error loading appointments:', error);

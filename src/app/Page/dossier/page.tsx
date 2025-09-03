@@ -6,6 +6,7 @@ import { Folder, Search } from "lucide-react";
 import Link from "next/link";
 import { dossierService } from '@/services/dossierService';
 import type { Patient } from '@/services/dossierService';
+import { getUserProfile } from '@/services/profilService';
 
 const Loading = () => (
   <div className="min-h-screen flex items-center justify-center bg-gray-100">
@@ -53,14 +54,39 @@ const MedicalFiles = () => {
   useEffect(() => {
     const fetchPatients = async () => {
       try {
-        const data = await dossierService.getAllPatients();
-        // Ensure data is an array before setting state
-        if (Array.isArray(data)) {
-          setPatients(data);
-          setFilteredPatients(data);
+        const currentUser = await getUserProfile();
+        // Si l'utilisateur connecté est un patient (role_id === 4), n'afficher que son dossier
+        if (currentUser?.role_id === 4) {
+          try {
+            const patientData = await dossierService.getPatientById(String(currentUser.id));
+            const singlePatient: Patient = {
+              id: String((patientData as any)?.id ?? currentUser.id),
+              name: (patientData as any)?.name ?? `${currentUser.name}${currentUser.prenom ? ' ' + currentUser.prenom : ''}`,
+              email: (patientData as any)?.email,
+              phone: (patientData as any)?.numeroTelephone,
+              address: (patientData as any)?.adresse,
+            };
+            setPatients([singlePatient]);
+            setFilteredPatients([singlePatient]);
+          } catch (innerErr) {
+            // Si la récupération détaillée échoue, fallback au profil utilisateur minimal
+            const fallbackPatient: Patient = {
+              id: String(currentUser.id),
+              name: `${currentUser.name}${currentUser.prenom ? ' ' + currentUser.prenom : ''}`,
+            } as Patient;
+            setPatients([fallbackPatient]);
+            setFilteredPatients([fallbackPatient]);
+          }
         } else {
-          console.error('Invalid data format received:', data);
-          setError('Format de données incorrect');
+          // Sinon (admin, docteur, assistant), afficher la liste complète
+          const data = await dossierService.getAllPatients();
+          if (Array.isArray(data)) {
+            setPatients(data);
+            setFilteredPatients(data);
+          } else {
+            console.error('Invalid data format received:', data);
+            setError('Format de données incorrect');
+          }
         }
       } catch (err) {
         setError('Erreur lors du chargement des dossiers');
@@ -119,7 +145,7 @@ const MedicalFiles = () => {
               <Folder className="w-12 h-12 text-gray-500" />
               <h2 className="text-sm font-semibold text-gray-700 mt-2 text-center">{patient.name}</h2>
               <p className="text-xs text-gray-500">Matricule: {patient.id}</p>
-              <Link href={`/Page/dossier/${patient.id}`}>)
+              <Link href={`/Page/dossier/${patient.id}`}>
                 <button className="cursor-pointer mt-3 bg-blue-500 text-white px-4 py-2 text-sm rounded-md hover:bg-blue-600 transition">
                   Ouvrir le dossier
                 </button>

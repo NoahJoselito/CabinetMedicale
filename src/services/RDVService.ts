@@ -35,6 +35,7 @@ export interface Appointment {
   date: string;
   heure: string;
   patient: {
+    id?: number;
     name: string;
     prenom: string;
   };
@@ -128,6 +129,7 @@ export const RDVService = {
             date: formattedDate,
             heure: rdv.heure ? rdv.heure.substring(0, 5) : '',
             patient: {
+              id: rdv.patient?.id || rdv.user?.id,
               name: rdv.patient?.name || rdv.user?.name || 'Non renseigné',
               prenom: rdv.patient?.prenom || rdv.user?.prenom || ''
             },
@@ -155,6 +157,7 @@ export const RDVService = {
         date: rdv.date,
         heure: rdv.heure,
         patient: {
+          id: rdv.patient?.id,
           name: rdv.patient?.name || 'Non renseigné',
           prenom: rdv.patient?.prenom || ''
         },
@@ -181,6 +184,7 @@ export const RDVService = {
         date: rdv.date,
         heure: rdv.heure,
         patient: {
+          id: rdv.patient?.id,
           name: rdv.patient?.name || 'Non renseigné',
           prenom: rdv.patient?.prenom || ''
         },
@@ -199,6 +203,7 @@ export const RDVService = {
       return {
         ...data,
         patient: {
+          id: data.patient?.id,
           name: data.patient?.name || 'Non renseigné',
           prenom: data.patient?.prenom || ''
         },
