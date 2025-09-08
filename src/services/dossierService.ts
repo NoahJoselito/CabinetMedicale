@@ -1,5 +1,6 @@
 import axiosInstance from './axiosConfig';
 import { ENDPOINTS } from './config';
+import { photoService, Photo } from './photoService';
 
 export interface Patient {
   id: string;
@@ -103,6 +104,56 @@ export const dossierService = {
       return response.data;
     } catch (error) {
       console.error('Error fetching patient details:', error);
+      throw error;
+    }
+  },
+
+  // Nouvelles fonctions pour gérer les photos médicales avec le système unifié
+  getPatientPhotos: async (patientId: number): Promise<Photo[]> => {
+    try {
+      return await photoService.getPatientPhotos(patientId);
+    } catch (error) {
+      console.error('Error fetching patient photos:', error);
+      return [];
+    }
+  },
+
+  uploadMedicalPhoto: async (photoData: {
+    patient_id: number;
+    photo_type: string;
+    photo: File;
+    description?: string;
+    upload_date?: string;
+  }): Promise<Photo> => {
+    try {
+      return await photoService.uploadMedicalPhoto(photoData);
+    } catch (error) {
+      console.error('Error uploading medical photo:', error);
+      throw error;
+    }
+  },
+
+  // Nouvelle méthode pour l'upload multiple de photos médicales
+  uploadMultipleMedicalPhotos: async (photoData: {
+    patient_id: number;
+    photo_type: string;
+    photos: File[];
+    description?: string;
+    upload_date?: string;
+  }): Promise<{ success: boolean; message: string; data: Photo[] }> => {
+    try {
+      return await photoService.uploadMultipleMedicalPhotosCompat(photoData);
+    } catch (error) {
+      console.error('Error uploading multiple medical photos:', error);
+      throw error;
+    }
+  },
+
+  deleteMedicalPhoto: async (photoId: number): Promise<void> => {
+    try {
+      await photoService.deletePhoto(photoId);
+    } catch (error) {
+      console.error('Error deleting medical photo:', error);
       throw error;
     }
   }

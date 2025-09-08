@@ -1,6 +1,7 @@
 import axios from 'axios';
 import axiosInstance from './axiosConfig';
 import { checkUser } from './checkService';
+import { photoService, Photo } from './photoService';
 
 export interface UserProfile {
   user: UserProfile;
@@ -79,6 +80,37 @@ export const updatePassword = async (passwordData: UpdatePasswordData): Promise<
     );
   } catch (error) {
     console.error('Erreur lors de la mise à jour du mot de passe:', error);
+    throw error;
+  }
+};
+
+// Nouvelles fonctions pour gérer les photos de profil avec le système unifié
+export const uploadProfilePhoto = async (userId: number, photoFile: File): Promise<Photo> => {
+  try {
+    return await photoService.uploadProfilePhoto({
+      user_id: userId,
+      photo: photoFile
+    });
+  } catch (error) {
+    console.error('Erreur lors de l\'upload de la photo de profil:', error);
+    throw error;
+  }
+};
+
+export const getUserProfilePhoto = async (userId: number): Promise<Photo | null> => {
+  try {
+    return await photoService.getUserProfilePhoto(userId);
+  } catch (error) {
+    console.error('Erreur lors de la récupération de la photo de profil:', error);
+    return null;
+  }
+};
+
+export const deleteProfilePhoto = async (photoId: number): Promise<void> => {
+  try {
+    await photoService.deletePhoto(photoId);
+  } catch (error) {
+    console.error('Erreur lors de la suppression de la photo de profil:', error);
     throw error;
   }
 };

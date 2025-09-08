@@ -1,9 +1,12 @@
 "use client";
-import { useEffect, useState, use } from "react";
-import { Folder, ArrowLeft, User, FileText, Stethoscope, Camera, Upload, X, Calendar, Image as ImageIcon, ZoomIn } from "lucide-react";
+import { useEffect, useState, use, useRef } from "react";
+import { Folder, ArrowLeft, User, FileText, Stethoscope, Camera, Upload, X, Calendar, Image as ImageIcon, ZoomIn, Eye } from "lucide-react";
 import Link from "next/link";
 import { dossierService, PatientDetail } from "@/services/dossierService";
 import { medicalPhotoService, MedicalPhoto } from "@/services/medicalPhotoService";
+import { photoService, Photo } from "@/services/photoService";
+import { consultService } from "@/services/consultService";
+import { toast } from 'react-toastify';
 
 const LoadingSpinner = () => (
   <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100">
@@ -42,15 +45,22 @@ const DossierPage = ({ params }: { params: Promise<{ id: string }> }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [patient, setPatient] = useState<PatientDetail | null>(null);
-  const [photos, setPhotos] = useState<MedicalPhoto[]>([]);
+  const [photos, setPhotos] = useState<Photo[]>([]);
+  const [legacyPhotos, setLegacyPhotos] = useState<MedicalPhoto[]>([]);
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [uploading, setUploading] = useState(false);
   const [showUploadForm, setShowUploadForm] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [photoType, setPhotoType] = useState("");
   const [photoDescription, setPhotoDescription] = useState("");
   const [uploadDate, setUploadDate] = useState(new Date().toISOString().split('T')[0]);
-  const [selectedPhoto, setSelectedPhoto] = useState<MedicalPhoto | null>(null);
+  const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<{[key: string]: number}>({});
+  const [consultationPhotos, setConsultationPhotos] = useState<any[]>([]);
+  const [selectedConsultationId, setSelectedConsultationId] = useState<number | null>(null);
+  const [showConsultationPhotosModal, setShowConsultationPhotosModal] = useState(false);
+  const [loadingConsultationPhotos, setLoadingConsultationPhotos] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     // Récupérer l'utilisateur connecté pour fallback docteur
@@ -67,9 +77,20 @@ const DossierPage = ({ params }: { params: Promise<{ id: string }> }) => {
         const data = await dossierService.getPatientDetails(resolvedParams.id);
         setPatient(data);
         
-        // Charger les photos du patient
-        const patientPhotos = await medicalPhotoService.getPatientPhotos(data.patient.id);
-        setPhotos(patientPhotos);
+        // Charger les photos du patient avec le nouveau système
+        try {
+          const patientPhotos = await dossierService.getPatientPhotos(data.patient.id);
+          setPhotos(patientPhotos);
+        } catch (photoError) {
+          console.warn('Erreur lors du chargement des photos avec le nouveau système, fallback vers l\'ancien:', photoError);
+          // Fallback vers l'ancien système
+          try {
+            const legacyPatientPhotos = await medicalPhotoService.getPatientPhotos(data.patient.id);
+            setLegacyPhotos(legacyPatientPhotos);
+          } catch (legacyError) {
+            console.warn('Erreur également avec l\'ancien système:', legacyError);
+          }
+        }
       } catch (err) {
         setError('Erreur lors du chargement des données du patient');
         console.error(err);
@@ -110,47 +131,115 @@ const DossierPage = ({ params }: { params: Promise<{ id: string }> }) => {
   ];
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      setSelectedFile(file);
+    const files = event.target.files;
+    if (files && files.length > 0) {
+      const fileArray = Array.from(files);
+      setSelectedFiles(fileArray);
+    }
+  };
+
+  const removeFile = (index: number) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const clearAllFiles = () => {
+    setSelectedFiles([]);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
     }
   };
 
   const handleUpload = async () => {
-    if (!selectedFile || !photoType || !patient) return;
+    if (selectedFiles.length === 0 || !photoType || !patient) return;
 
     setUploading(true);
-    try {
-      const uploadData = {
-        patient_id: patient.patient.id,
-        photo_type: photoType,
-        photo: selectedFile,
-        description: photoDescription,
-        upload_date: uploadDate
-      };
-
-      const newPhoto = await medicalPhotoService.uploadPhoto(uploadData);
-      setPhotos(prev => [newPhoto, ...prev]);
+    setUploadProgress({});
+    
+    const uploadPromises = selectedFiles.map(async (file, index) => {
+      const fileKey = `${file.name}-${index}`;
       
-      // Reset form
-      setSelectedFile(null);
-      setPhotoType("");
-      setPhotoDescription("");
-      setUploadDate(new Date().toISOString().split('T')[0]);
-      setShowUploadForm(false);
+      try {
+        setUploadProgress(prev => ({ ...prev, [fileKey]: 0 }));
+        
+        const uploadData = {
+          patient_id: patient.patient.id,
+          photo_type: photoType,
+          photo: file,
+          description: photoDescription,
+          upload_date: uploadDate
+        };
+
+        // Essayer d'abord le nouveau système
+        try {
+          const newPhoto = await dossierService.uploadMedicalPhoto(uploadData);
+          setPhotos(prev => [newPhoto, ...prev]);
+          setUploadProgress(prev => ({ ...prev, [fileKey]: 100 }));
+          return { success: true, photo: newPhoto, file: file.name };
+        } catch (newSystemError) {
+          console.warn('Erreur avec le nouveau système, fallback vers l\'ancien:', newSystemError);
+          // Fallback vers l'ancien système
+          const newPhoto = await medicalPhotoService.uploadPhoto(uploadData);
+          setLegacyPhotos(prev => [newPhoto, ...prev]);
+          setUploadProgress(prev => ({ ...prev, [fileKey]: 100 }));
+          return { success: true, photo: newPhoto, file: file.name };
+        }
+      } catch (err) {
+        console.error(`Erreur lors de l'upload de ${file.name}:`, err);
+        setUploadProgress(prev => ({ ...prev, [fileKey]: -1 })); // -1 pour indiquer une erreur
+        return { success: false, error: err, file: file.name };
+      }
+    });
+
+    try {
+      const results = await Promise.all(uploadPromises);
+      
+      // Afficher les résultats
+      const successful = results.filter(r => r.success).length;
+      const failed = results.filter(r => !r.success).length;
+      
+      if (successful > 0) {
+        toast.success(`${successful} photo(s) uploadée(s) avec succès`);
+      }
+      if (failed > 0) {
+        toast.error(`${failed} photo(s) n'ont pas pu être uploadée(s)`);
+      }
+      
+      // Reset form seulement si tout s'est bien passé
+      if (failed === 0) {
+        setSelectedFiles([]);
+        setPhotoType("");
+        setPhotoDescription("");
+        setUploadDate(new Date().toISOString().split('T')[0]);
+        setShowUploadForm(false);
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
+      }
     } catch (err) {
       console.error('Erreur lors de l\'upload:', err);
-      alert('Erreur lors de l\'upload de la photo');
+      toast.error('Erreur lors de l\'upload des photos');
     } finally {
       setUploading(false);
+      // Nettoyer le progress après 3 secondes
+      setTimeout(() => {
+        setUploadProgress({});
+      }, 3000);
     }
   };
 
   const handleDeletePhoto = async (photoId: number) => {
     if (confirm('Êtes-vous sûr de vouloir supprimer cette photo ?')) {
       try {
-        await medicalPhotoService.deletePhoto(photoId);
-        setPhotos(prev => prev.filter(photo => photo.id !== photoId));
+        // Essayer d'abord le nouveau système
+        try {
+          await dossierService.deleteMedicalPhoto(photoId);
+          setPhotos(prev => prev.filter(photo => photo.id !== photoId));
+        } catch (newSystemError) {
+          console.warn('Erreur avec le nouveau système, fallback vers l\'ancien:', newSystemError);
+          // Fallback vers l'ancien système
+          await medicalPhotoService.deletePhoto(photoId);
+          setLegacyPhotos(prev => prev.filter(photo => photo.id !== photoId));
+        }
       } catch (err) {
         console.error('Erreur lors de la suppression:', err);
         alert('Erreur lors de la suppression de la photo');
@@ -158,12 +247,35 @@ const DossierPage = ({ params }: { params: Promise<{ id: string }> }) => {
     }
   };
 
-  const handlePhotoClick = (photo: MedicalPhoto) => {
-    setSelectedPhoto(photo);
+  const handlePhotoClick = (photo: Photo | MedicalPhoto) => {
+    setSelectedPhoto(photo as Photo);
   };
 
   const closeModal = () => {
     setSelectedPhoto(null);
+  };
+
+  const handleViewConsultationPhotos = async (consultationId: number) => {
+    setSelectedConsultationId(consultationId);
+    setLoadingConsultationPhotos(true);
+    setShowConsultationPhotosModal(true);
+    
+    try {
+      const photos = await consultService.getConsultationPhotos(consultationId);
+      setConsultationPhotos(photos);
+    } catch (error) {
+      console.error('Erreur lors du chargement des photos de consultation:', error);
+      toast.error('Erreur lors du chargement des photos de la consultation');
+      setConsultationPhotos([]);
+    } finally {
+      setLoadingConsultationPhotos(false);
+    }
+  };
+
+  const closeConsultationPhotosModal = () => {
+    setShowConsultationPhotosModal(false);
+    setSelectedConsultationId(null);
+    setConsultationPhotos([]);
   };
 
   // Déterminer le médecin traitant (du dossier):
@@ -257,179 +369,7 @@ const DossierPage = ({ params }: { params: Promise<{ id: string }> }) => {
           </div>
         </div>
 
-        {/* Medical Photos Section */}
-        <div className="mt-6 bg-white rounded-xl shadow-lg border border-gray-100 text-gray-800">
-          <div className="p-6 border-b border-gray-100 flex justify-between items-center">
-            <h2 className="text-xl font-semibold flex items-center text-gray-800">
-              <Camera className="w-6 h-6 mr-3 text-blue-500" /> 
-              Photos médicales
-            </h2>
-            <button
-              onClick={() => setShowUploadForm(!showUploadForm)}
-              className="cursor-pointer inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              <Upload className="w-4 h-4 mr-2" />
-              Ajouter une photo
-            </button>
-          </div>
 
-          {/* Upload Form */}
-          {showUploadForm && (
-            <div className="p-6 border-b border-gray-100 bg-gray-50">
-              <div className="grid md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Type de photo *
-                  </label>
-                  <select
-                    value={photoType}
-                    onChange={(e) => setPhotoType(e.target.value)}
-                    className="cursor-pointer w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    <option value="">Sélectionner un type</option>
-                    {photoTypes.map((type) => (
-                      <option key={type} value={type}>{type}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Date d'upload
-                  </label>
-                  <div className="relative">
-                    <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                    <input
-                      type="date"
-                      value={uploadDate}
-                      onChange={(e) => setUploadDate(e.target.value)}
-                      className="w-full p-3 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                  </div>
-                </div>
-
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Description (optionnel)
-                  </label>
-                  <textarea
-                    value={photoDescription}
-                    onChange={(e) => setPhotoDescription(e.target.value)}
-                    placeholder="Description de la photo..."
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    rows={3}
-                  />
-                </div>
-
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Sélectionner une photo *
-                  </label>
-                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-400 transition-colors">
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleFileSelect}
-                      className="hidden"
-                      id="photo-upload"
-                    />
-                    <label htmlFor="photo-upload" className="cursor-pointer">
-                      {selectedFile ? (
-                        <div className="space-y-2">
-                          <ImageIcon className="w-12 h-12 mx-auto text-blue-500" />
-                          <p className="text-sm text-gray-600">{selectedFile.name}</p>
-                          <p className="text-xs text-gray-500">
-                            {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
-                          </p>
-                        </div>
-                      ) : (
-                        <div className="space-y-2">
-                          <Upload className="w-12 h-12 mx-auto text-gray-400" />
-                          <p className="text-sm text-gray-600">
-                            Cliquez pour sélectionner une image
-                          </p>
-                          <p className="text-xs text-gray-500">
-                            PNG, JPG, JPEG jusqu'à 10MB
-                          </p>
-                        </div>
-                      )}
-                    </label>
-                  </div>
-                </div>
-
-                <div className="md:col-span-2 flex space-x-3">
-                  <button
-                    onClick={handleUpload}
-                    disabled={!selectedFile || !photoType || uploading}
-                    className="cursor-pointer flex-1 bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
-                  >
-                    {uploading ? 'Upload en cours...' : 'Uploader la photo'}
-                  </button>
-                  <button
-                    onClick={() => {
-                      setShowUploadForm(false);
-                      setSelectedFile(null);
-                      setPhotoType("");
-                      setPhotoDescription("");
-                      setUploadDate(new Date().toISOString().split('T')[0]);
-                    }}
-                    className="cursor-pointer px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-                  >
-                    Annuler
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Photos Grid */}
-          <div className="p-6">
-            {!Array.isArray(photos) || photos.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
-                <Camera className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-                <p>Aucune photo médicale disponible</p>
-                <p className="text-sm">Ajoutez la première photo en cliquant sur "Ajouter une photo"</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {photos.map((photo) => (
-                  <div key={photo.id} className="bg-gray-50 rounded-lg overflow-hidden hover:shadow-md transition-shadow">
-                    <div className="relative group">
-                      <img
-                        src={photo.photo_path}
-                        alt={`Photo médicale - ${photo.photo_type}`}
-                        className="w-full h-48 object-cover cursor-pointer transition-transform group-hover:scale-105"
-                        onClick={() => handlePhotoClick(photo)}
-                        onError={(e) => {
-                          const target = e.target as HTMLImageElement;
-                          target.src = '/img/placeholder-medical.svg';
-                        }}
-                      />
-                      <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all flex items-center justify-center">
-                        <ZoomIn className="w-8 h-8 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
-                      </div>
-                      <button
-                        onClick={() => handleDeletePhoto(photo.id)}
-                        className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full hover:bg-red-600 transition-colors"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
-                    <div className="p-4">
-                      <h3 className="font-semibold text-blue-600 mb-2">{photo.photo_type}</h3>
-                      <p className="text-sm text-gray-600 mb-2">
-                        {new Date(photo.upload_date).toLocaleDateString('fr-FR')}
-                      </p>
-                      {photo.description && (
-                        <p className="text-sm text-gray-500">{photo.description}</p>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
 
         {/* Consultations */}
         <div className="mt-6 bg-white rounded-xl shadow-lg border border-gray-100 text-gray-800">
@@ -465,6 +405,13 @@ const DossierPage = ({ params }: { params: Promise<{ id: string }> }) => {
                         ) : null;
                       })()}
                     </div>
+                    <button
+                      onClick={() => handleViewConsultationPhotos(consultation.id)}
+                      className="cursor-pointer inline-flex items-center px-3 py-2 text-sm font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
+                    >
+                      <Eye className="w-4 h-4 mr-2" />
+                      Voir les photos
+                    </button>
                   </div>
 
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
@@ -490,8 +437,14 @@ const DossierPage = ({ params }: { params: Promise<{ id: string }> }) => {
 
       {/* Photo Modal */}
       {selectedPhoto && (
-        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl max-w-4xl max-h-[90vh] overflow-hidden">
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4"
+          onClick={closeModal}
+        >
+          <div 
+            className="bg-white rounded-xl max-w-4xl max-h-[90vh] overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="p-4 border-b border-gray-200 flex justify-between items-center">
               <div>
                 <h3 className="text-lg font-semibold text-gray-800">{selectedPhoto.photo_type}</h3>
@@ -520,6 +473,91 @@ const DossierPage = ({ params }: { params: Promise<{ id: string }> }) => {
                 <div className="mt-4 p-4 bg-gray-50 rounded-lg">
                   <h4 className="font-semibold text-gray-800 mb-2">Description :</h4>
                   <p className="text-gray-600">{selectedPhoto.description}</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Consultation Photos Modal */}
+      {showConsultationPhotosModal && (
+        <div 
+          className="fixed inset-0 bg-black/75 flex items-center justify-center z-50 p-4"
+          onClick={closeConsultationPhotosModal}
+        >
+          <div 
+            className="bg-white rounded-xl max-w-6xl max-h-[90vh] overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-4 border-b border-gray-200 flex justify-between items-center">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-800">
+                  Photos de la consultation
+                </h3>
+                <p className="text-sm text-gray-500">
+                  {selectedConsultationId && `Consultation #${selectedConsultationId}`}
+                </p>
+              </div>
+              <button
+                onClick={closeConsultationPhotosModal}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors text-gray-400"
+              >
+                <X className="w-6 h-6 cursor-pointer" />
+              </button>
+            </div>
+            <div className="p-4 max-h-[70vh] overflow-y-auto">
+              {loadingConsultationPhotos ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="text-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+                    <p className="text-gray-600">Chargement des photos...</p>
+                  </div>
+                </div>
+              ) : consultationPhotos.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {consultationPhotos.map((photo) => (
+                    <div
+                      key={photo.id}
+                      className="bg-gray-50 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer"
+                      onClick={() => setSelectedPhoto(photo as any)}
+                    >
+                      <div className="aspect-square mb-3 overflow-hidden rounded-lg">
+                        <img
+                          src={photo.file_path || photo.photo_path}
+                          alt={`Photo médicale - ${photo.photo_type}`}
+                          className="w-full h-full object-cover hover:scale-105 transition-transform"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.src = '/img/placeholder-medical.svg';
+                          }}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <h4 className="font-semibold text-gray-800 text-sm">
+                          {photo.photo_type}
+                        </h4>
+                        <p className="text-xs text-gray-500">
+                          {new Date(photo.upload_date).toLocaleDateString('fr-FR')}
+                        </p>
+                        {photo.description && (
+                          <p className="text-xs text-gray-600 line-clamp-2">
+                            {photo.description}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <ImageIcon className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold text-gray-600 mb-2">
+                    Aucune photo trouvée
+                  </h3>
+                  <p className="text-gray-500">
+                    Cette consultation ne contient pas de photos médicales.
+                  </p>
                 </div>
               )}
             </div>

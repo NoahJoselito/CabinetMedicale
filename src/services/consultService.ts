@@ -1,6 +1,6 @@
 import { JSX } from 'react';
 import axiosInstance from './axiosConfig';
-import { ENDPOINTS } from './config';
+import { ENDPOINTS, API_URL } from './config';
 
 export interface Patient {
   prisesEnCharge: any;
@@ -190,6 +190,34 @@ export interface PaymentRequest {
   numero_mobile?: string;
   numero_dossier?: string;
   organisme?: string;
+}
+
+// Interfaces pour les photos médicales
+export interface MedicalPhoto {
+  id: number;
+  photoable_id: string;
+  photoable_type: string;
+  category: string;
+  photo_type: string;
+  file_path: string;
+  upload_date: string;
+  description: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PhotoUploadRequest {
+  consultation_id: number;
+  photos: File[];
+  date: string;
+  description: string;
+  photo_type: string;
+}
+
+export interface PhotoUploadResponse {
+  success: boolean;
+  message: string;
+  data: MedicalPhoto[];
 }
 
 // Interface pour la réponse de paiement
@@ -624,4 +652,106 @@ export const consultService = {
       throw error;
     }
   },
+
+  // Méthode pour uploader des photos médicales
+  uploadMedicalPhotos: async (photoData: PhotoUploadRequest): Promise<PhotoUploadResponse> => {
+    try {
+      console.log('[Photo Upload] Starting upload process...');
+      console.log('[Photo Upload] Photo data:', {
+        consultation_id: photoData.consultation_id,
+        photos_count: photoData.photos.length,
+        date: photoData.date,
+        description: photoData.description,
+        photo_type: photoData.photo_type
+      });
+
+      const formData = new FormData();
+      
+      // Ajouter les photos
+      photoData.photos.forEach((photo, index) => {
+        console.log(`[Photo Upload] Adding photo ${index}:`, {
+          name: photo.name,
+          size: photo.size,
+          type: photo.type
+        });
+        formData.append(`photos[${index}]`, photo);
+      });
+      
+      // Ajouter les autres données
+      formData.append('consultation_id', photoData.consultation_id.toString());
+      formData.append('date', photoData.date);
+      formData.append('description', photoData.description);
+      formData.append('photo_type', photoData.photo_type);
+      formData.append('category', 'medical');
+      formData.append('photoable_type', 'App\\Models\\Consultation');
+
+      console.log('[Photo Upload] FormData contents:');
+      for (let [key, value] of formData.entries()) {
+        console.log(`  ${key}:`, value);
+      }
+
+      console.log('[Photo Upload] Sending request to:', `${API_URL}${ENDPOINTS.PHOTOS.UPLOAD}`);
+
+      const response = await axiosInstance.post(ENDPOINTS.PHOTOS.UPLOAD, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      console.log('[Photo Upload] Response received:', response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error('[Photo Upload] Error details:', {
+        message: error.message,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        url: error.config?.url,
+        method: error.config?.method
+      });
+      
+      if (error.response?.data) {
+        throw error.response.data;
+      }
+      throw error;
+    }
+  },
+
+  // Méthode pour récupérer les photos d'une consultation
+  getConsultationPhotos: async (consultationId: number): Promise<MedicalPhoto[]> => {
+    try {
+      console.log(`[Consultation Photos] Fetching photos for consultation ${consultationId}`);
+      
+      const response = await axiosInstance.get(`${API_URL}/consultations/${consultationId}/photos`);
+      
+      console.log('[Consultation Photos] Response received:', response.data);
+      
+      // Si la réponse est un tableau, le retourner directement
+      if (Array.isArray(response.data)) {
+        return response.data;
+      }
+      
+      // Si la réponse a une structure différente, essayer d'extraire les données
+      if (response.data.data && Array.isArray(response.data.data)) {
+        return response.data.data;
+      }
+      
+      // Si aucune structure attendue, retourner un tableau vide
+      console.warn('[Consultation Photos] Unexpected response structure:', response.data);
+      return [];
+    } catch (error: any) {
+      console.error('[Consultation Photos] Error details:', {
+        message: error.message,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        url: error.config?.url,
+        method: error.config?.method
+      });
+      
+      // Retourner un tableau vide en cas d'erreur pour ne pas casser l'interface
+      return [];
+    }
+  },
+
   };

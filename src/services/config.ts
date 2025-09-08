@@ -47,6 +47,15 @@ export const ENDPOINTS = {
       STATUS: `/payments`,
     },
   },
+  // Nouveau système de photos unifié avec relations polymorphiques
+  PHOTOS: {
+    UPLOAD: '/photos/upload',
+    PATIENT: (patientId: number) => `/photos/patient/${patientId}`,
+    USER: (userId: number) => `/photos/user/${userId}`,
+    DELETE: (id: number) => `/photos/${id}`,
+    GET_BY_ID: (id: number) => `/photos/${id}`,
+  },
+  // Ancien système (à supprimer progressivement)
   MEDICAL_PHOTOS: {
     LIST: (patientId: number) => `/medical-photos/patient/${patientId}`,
     UPLOAD: '/medical-photos/upload',

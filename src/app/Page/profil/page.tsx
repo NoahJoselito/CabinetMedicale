@@ -5,7 +5,8 @@ import { motion } from 'framer-motion';
 import { FiEdit2, FiSave, FiLogOut, FiUser, FiMail, FiPhone, FiCalendar, FiMapPin, FiBriefcase, FiGlobe, FiUpload, FiCamera, FiLock, FiEye, FiEyeOff } from 'react-icons/fi';
 import Link from "next/link";
 import Image from 'next/image';
-import { getUserProfile, updateUserProfile, updatePassword, UserProfile, UpdatePasswordData } from '@/services/profilService';
+import { getUserProfile, updateUserProfile, updatePassword, uploadProfilePhoto, getUserProfilePhoto, UserProfile, UpdatePasswordData } from '@/services/profilService';
+import { Photo } from '@/services/photoService';
 import { toast } from 'react-toastify';
 
 const Loading = () => (
@@ -51,6 +52,7 @@ export default function Profil() {
   const [userData, setUserData] = useState<UserProfile | null>(null);
   const [formData, setFormData] = useState<UserProfile | null>(null);
   const [profileImage, setProfileImage] = useState<string | null>(null);
+  const [profilePhoto, setProfilePhoto] = useState<Photo | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -59,9 +61,26 @@ export default function Profil() {
         const data = await getUserProfile();
         setUserData(data);
         setFormData(data);
-        if (data.photo_url) {
-          setProfileImage(data.photo_url);
-          localStorage.setItem('userPhoto', data.photo_url);
+        
+        // Essayer de récupérer la photo de profil avec le nouveau système
+        try {
+          const photo = await getUserProfilePhoto(data.id);
+          if (photo) {
+            setProfilePhoto(photo);
+            setProfileImage(photo.photo_path);
+            localStorage.setItem('userPhoto', photo.photo_path);
+          } else if (data.photo_url) {
+            // Fallback vers l'ancien système
+            setProfileImage(data.photo_url);
+            localStorage.setItem('userPhoto', data.photo_url);
+          }
+        } catch (photoError) {
+          console.warn('Erreur lors du chargement de la photo de profil:', photoError);
+          // Fallback vers l'ancien système
+          if (data.photo_url) {
+            setProfileImage(data.photo_url);
+            localStorage.setItem('userPhoto', data.photo_url);
+          }
         }
       } catch (err) {
         setError('Erreur lors du chargement du profil');
@@ -90,23 +109,34 @@ export default function Profil() {
         formDataToSend.append('emploi', formData.emploi || '');
         formDataToSend.append('organisme', formData.organisme || '');
 
-        // Gérer la photo
+        // Gérer la photo avec le nouveau système
         if (fileInputRef.current?.files?.[0]) {
-          formDataToSend.append('photo', fileInputRef.current.files[0]);
+          try {
+            // Uploader la photo avec le nouveau système
+            const uploadedPhoto = await uploadProfilePhoto(formData.id, fileInputRef.current.files[0]);
+            setProfilePhoto(uploadedPhoto);
+            setProfileImage(uploadedPhoto.photo_path);
+            localStorage.setItem('userPhoto', uploadedPhoto.photo_path);
+            
+            // Nettoyer l'aperçu temporaire et réinitialiser l'input fichier
+            localStorage.removeItem('tempUserPhoto');
+            if (fileInputRef.current) {
+              fileInputRef.current.value = '';
+            }
+          } catch (photoError) {
+            console.warn('Erreur lors de l\'upload de la photo, fallback vers l\'ancien système:', photoError);
+            // Fallback vers l'ancien système
+            formDataToSend.append('photo', fileInputRef.current.files[0]);
+          }
         }
 
         const response = await updateUserProfile(formData.id, formDataToSend);
         const updatedUser = response.user || response;
         
-        // Utiliser directement photo_url fourni par le backend
-        if (updatedUser.photo_url) {
+        // Utiliser directement photo_url fourni par le backend (fallback)
+        if (updatedUser.photo_url && !profilePhoto) {
           setProfileImage(updatedUser.photo_url);
           localStorage.setItem('userPhoto', updatedUser.photo_url);
-          // Nettoyer l'aperçu temporaire et réinitialiser l'input fichier
-          localStorage.removeItem('tempUserPhoto');
-          if (fileInputRef.current) {
-            fileInputRef.current.value = '';
-          }
         }
 
         setUserData(updatedUser);

@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
 import { FiFilter, FiSearch, FiCalendar } from 'react-icons/fi';
 import Link from 'next/link';
 import { toast } from 'react-toastify';
-import { consultService, ConsultationResponse, PaymentRequest } from '@/services/consultService';
+import { consultService, ConsultationResponse, PaymentRequest, PhotoUploadRequest } from '@/services/consultService';
 
 const Loading = () => (
   <div className="min-h-screen flex items-center justify-center bg-gray-100">
@@ -138,6 +138,12 @@ export default function DossierMedical() {
   const [numeroDossier, setNumeroDossier] = useState('');
   const [organisme, setOrganisme] = useState('');
   const [showPriseEnChargeModal, setShowPriseEnChargeModal] = useState(false);
+  const [showPhotoModal, setShowPhotoModal] = useState(false);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [photoDescription, setPhotoDescription] = useState('');
+  const [photoDate, setPhotoDate] = useState(new Date().toISOString().split('T')[0]);
+  const [photoType, setPhotoType] = useState('');
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   
   // Function to change page
   const paginate = (pageNumber: number) => setCurrentPage(pageNumber);
@@ -180,6 +186,30 @@ export default function DossierMedical() {
     }
     setPaymentMethod('cash');
     setShowPaymentModal(true);
+  };
+
+  const handlePhotoUpload = (id: number) => {
+    const consultation = consultations.find(c => c.id === id);
+    if (consultation) {
+      setCurrentPatient({
+        id: consultation.id,
+        name: `${consultation.patient.name} ${consultation.patient.prenom}`,
+        seance: consultation.traitements.map(t => t.nom).join(', '),
+        amount: Number(consultation.total),
+        paid: consultation.statuspaiement === 'Payé',
+        seanceCount: consultation.seanceCount || 0,
+        completedSeances: consultation.completedSeances || 0,
+        payementrestant: Number(consultation.payementrestant),
+        montantPaye: Number(consultation.montantPaye)
+      });
+    } else {
+      setCurrentPatient(null);
+    }
+    setSelectedFiles([]);
+    setPhotoDescription('');
+    setPhotoDate(new Date().toISOString().split('T')[0]);
+    setPhotoType('');
+    setShowPhotoModal(true);
   };  const confirmSeance = async () => {
     if (currentPatient) {
       setIsValidating(true);
@@ -348,6 +378,7 @@ export default function DossierMedical() {
     setShowMobileModal(false);
     setShowPriseEnChargeModal(false);
     setShowPaymentModal(false);
+    setShowPhotoModal(false);
     setCurrentPatient(null);
     setCashAmount('');
     setCardNumber('');
@@ -357,6 +388,105 @@ export default function DossierMedical() {
     setMobileCode('');
     setNumeroDossier('');
     setOrganisme('');
+    setSelectedFiles([]);
+    setPhotoDescription('');
+    setPhotoDate(new Date().toISOString().split('T')[0]);
+    setPhotoType('');
+  };
+
+  // Fonction pour gérer l'upload de photos médicales (plusieurs fichiers)
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || []);
+    if (files.length > 0) {
+      // Vérifier le type de fichier pour chaque fichier
+      const invalidFiles = files.filter(file => !file.type.startsWith('image/'));
+      if (invalidFiles.length > 0) {
+        toast.error('Veuillez sélectionner uniquement des fichiers image valides');
+        return;
+      }
+      
+      // Vérifier la taille des fichiers (max 5MB chacun)
+      const oversizedFiles = files.filter(file => file.size > 5 * 1024 * 1024);
+      if (oversizedFiles.length > 0) {
+        toast.error('Certains fichiers dépassent la taille maximale de 5MB');
+        return;
+      }
+      
+      setSelectedFiles(prev => [...prev, ...files]);
+    }
+  };
+
+  // Fonction pour supprimer un fichier de la liste
+  const removeFile = (index: number) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const confirmPhotoUpload = async () => {
+    if (!currentPatient || selectedFiles.length === 0) {
+      toast.error('Veuillez sélectionner au moins une photo');
+      return;
+    }
+
+    if (!photoType.trim()) {
+      toast.error('Veuillez spécifier le type de photo');
+      return;
+    }
+
+    console.log('[UI] Starting photo upload process...');
+    console.log('[UI] Current patient:', currentPatient);
+    console.log('[UI] Selected files:', selectedFiles.map(f => ({ name: f.name, size: f.size, type: f.type })));
+    console.log('[UI] Photo data:', { photoDate, photoDescription, photoType });
+
+    setIsUploadingPhoto(true);
+    try {
+      // Préparer les données pour l'upload
+      const photoData: PhotoUploadRequest = {
+        consultation_id: currentPatient.id,
+        photos: selectedFiles,
+        date: photoDate,
+        description: photoDescription,
+        photo_type: photoType
+      };
+
+      console.log('[UI] Prepared photo data:', photoData);
+
+      // Appel à l'API pour uploader les photos
+      const response = await consultService.uploadMedicalPhotos(photoData);
+      
+      console.log('[UI] Upload successful:', response);
+
+      // Afficher le message de succès
+      toast.success(response.message || `${selectedFiles.length} photo(s) ajoutée(s) avec succès`);
+      
+      // Fermer le modal et réinitialiser
+      setShowPhotoModal(false);
+      setCurrentPatient(null);
+      setSelectedFiles([]);
+      setPhotoDescription('');
+      setPhotoDate(new Date().toISOString().split('T')[0]);
+      setPhotoType('');
+      
+    } catch (error: any) {
+      console.error('[UI] Upload error details:', {
+        message: error.message,
+        status: error.response?.status,
+        data: error.response?.data,
+        stack: error.stack
+      });
+      
+      // Gestion des erreurs spécifiques
+      if (error.message?.includes('validation')) {
+        toast.error('Données invalides. Vérifiez les informations saisies.');
+      } else if (error.message?.includes('non trouvée')) {
+        toast.error('Consultation non trouvée. Veuillez actualiser la page.');
+      } else if (error.message?.includes('serveur')) {
+        toast.error('Problème de connexion. Veuillez réessayer.');
+      } else {
+        toast.error(error.message || 'Erreur lors de l\'ajout des photos médicales');
+      }
+    } finally {
+      setIsUploadingPhoto(false);
+    }
   };
 
   useEffect(() => {
@@ -435,7 +565,7 @@ export default function DossierMedical() {
             <table className="min-w-full bg-white">
               <thead>
                 <tr className="bg-gray-100 text-gray-600 uppercase text-sm leading-normal">
-                  <th className="py-3 px-6 text-left">Patient / Docteur</th>
+                  <th className="py-3 px-6 text-left">Patient</th>
                   <th className="py-3 px-6 text-left">Traitement</th>
                   <th className="py-3 px-6 text-right">Montant</th>
                   <th className="py-3 px-6 text-center">Statut</th>
@@ -509,7 +639,7 @@ export default function DossierMedical() {
                         </div>
                       </td>
                       <td className="py-3 px-6 text-center">
-                        <div className="flex justify-center items-center space-x-2">
+                        <div className="flex justify-center items-center space-x-2 flex-wrap">
                           {consultation.statusseance !== 'Complet' && consultation.seancerestant !== null && (
                             <button 
                               onClick={() => handleSeanceValidation(consultation.id)}
@@ -526,6 +656,15 @@ export default function DossierMedical() {
                             Régler paiement
                           </button>
                         )}
+                        <button
+                          onClick={() => handlePhotoUpload(consultation.id)}
+                          className="bg-blue-500 hover:bg-blue-600 text-white py-1 px-3 rounded text-xs transition duration-300 cursor-pointer flex items-center gap-1"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" />
+                          </svg>
+                          Photo
+                        </button>
                         {consultation.statusseance === 'Complet' && consultation.statuspaiement === 'Payé' && (
                           <span className="text-green-600 text-xs">Traitement terminé</span>
                         )}
@@ -1111,6 +1250,183 @@ export default function DossierMedical() {
                     </>
                   ) : (
                     'Confirmer la prise en charge'
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal pour ajouter des photos médicales */}
+        {showPhotoModal && currentPatient && (
+          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+            <div className="bg-white text-gray-500 rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+              <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-purple-500" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" />
+                </svg>
+                Ajouter des photos médicales
+              </h3>
+              
+              <div className="mb-4">
+                <p><span className="font-medium">Patient:</span> {currentPatient.name}</p>
+                <p><span className="font-medium">Traitement:</span> {currentPatient.seance}</p>
+              </div>
+              
+              {/* Champs de formulaire */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Date des photos *
+                  </label>
+                  <input 
+                    type="date" 
+                    value={photoDate}
+                    onChange={(e) => setPhotoDate(e.target.value)}
+                    className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    required
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Type de photo *
+                  </label>
+                  <select 
+                    value={photoType}
+                    onChange={(e) => setPhotoType(e.target.value)}
+                    className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    required
+                  >
+                    <option value="">Sélectionner un type</option>
+                    <option value="radiographie">Radiographie</option>
+                    <option value="scanner">Scanner</option>
+                    <option value="irm">IRM</option>
+                    <option value="echographie">Échographie</option>
+                    <option value="photo_clinique">Photo clinique</option>
+                    <option value="autre">Autre</option>
+                  </select>
+                </div>
+              </div>
+              
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Description des photos (optionnel)
+                </label>
+                <textarea 
+                  value={photoDescription}
+                  onChange={(e) => setPhotoDescription(e.target.value)}
+                  className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  placeholder="Décrivez les photos médicales (ex: avant traitement, après séance, etc.)"
+                  rows={3}
+                />
+              </div>
+              
+              {/* Zone de sélection de fichiers */}
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Sélectionner des photos *
+                </label>
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-purple-400 transition-colors">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={handleFileChange}
+                    className="hidden"
+                    id="photo-upload"
+                  />
+                  <label 
+                    htmlFor="photo-upload" 
+                    className="cursor-pointer flex flex-col items-center"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-gray-400 mb-2" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" />
+                    </svg>
+                    <span className="text-sm text-gray-600">
+                      Cliquez pour sélectionner des photos
+                    </span>
+                    <span className="text-xs text-gray-500 mt-1">
+                      Formats acceptés: JPG, PNG, GIF (max 5MB par fichier)
+                    </span>
+                  </label>
+                </div>
+                
+                {/* Liste des fichiers sélectionnés */}
+                {selectedFiles.length > 0 && (
+                  <div className="mt-3 space-y-2">
+                    <p className="text-sm font-medium text-gray-700">
+                      {selectedFiles.length} photo(s) sélectionnée(s):
+                    </p>
+                    {selectedFiles.map((file, index) => (
+                      <div key={index} className="flex items-center justify-between p-2 bg-green-50 rounded-lg">
+                        <div className="flex items-center gap-2">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-green-500" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                          </svg>
+                          <span className="text-sm text-green-700">
+                            {file.name} ({(file.size / 1024 / 1024).toFixed(2)} MB)
+                          </span>
+                        </div>
+                        <button
+                          onClick={() => removeFile(index)}
+                          className="text-red-500 hover:text-red-700 p-1"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                          </svg>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              
+              <div className="mb-4 p-3 bg-purple-50 rounded-lg">
+                <p className="text-sm text-purple-700">
+                  <span className="font-medium">Note:</span> Ces photos seront associées à la consultation du patient et pourront être consultées dans son dossier médical.
+                </p>
+              </div>
+              
+              <div className="flex justify-end space-x-3">
+                <button 
+                  onClick={() => {
+                    setShowPhotoModal(false);
+                    setSelectedFiles([]);
+                    setPhotoDescription('');
+                    setPhotoDate(new Date().toISOString().split('T')[0]);
+                    setPhotoType('');
+                  }}
+                  disabled={isUploadingPhoto}
+                  className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Annuler
+                </button>
+                <button 
+                  onClick={confirmPhotoUpload}
+                  disabled={selectedFiles.length === 0 || !photoType.trim() || isUploadingPhoto}
+                  className={`px-4 py-2 rounded-md flex items-center justify-center ${
+                    selectedFiles.length === 0 || !photoType.trim() || isUploadingPhoto
+                      ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                      : 'bg-purple-500 text-white hover:bg-purple-600 cursor-pointer'
+                  }`}
+                >
+                  {isUploadingPhoto ? (
+                    <>
+                      <motion.div 
+                        className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full mr-2"
+                        animate={{ rotate: 360 }}
+                        transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                      />
+                      <span>Upload en cours...</span>
+                    </>
+                  ) : (
+                    <>
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
+                      </svg>
+                      <span>Ajouter les photos ({selectedFiles.length})</span>
+                    </>
                   )}
                 </button>
               </div>
