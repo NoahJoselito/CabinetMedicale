@@ -1,6 +1,6 @@
-import { JSX } from 'react';
-import axiosInstance from './axiosConfig';
-import { ENDPOINTS, API_URL } from './config';
+import { JSX } from "react";
+import axiosInstance from "./axiosConfig";
+import { ENDPOINTS, API_URL } from "./config";
 
 export interface Patient {
   prisesEnCharge: any;
@@ -56,7 +56,7 @@ export interface Treatment {
 
 export interface Product {
   id: number;
-  nom: string;        // Changé de libelle à nom pour correspondre à l'API
+  nom: string; // Changé de libelle à nom pour correspondre à l'API
   description?: string;
   prix: number;
   quantite: number;
@@ -66,7 +66,7 @@ export interface Product {
 export interface Payment {
   montant: number;
   date: string;
-  type: 'espece' | 'mobilemoney' | 'prisencharge';
+  type: "espece" | "mobilemoney" | "prisencharge";
   numero_mobile?: string | null;
   numero_dossier?: string | null;
   organisme?: string | null;
@@ -101,7 +101,7 @@ export interface Consultation {
   paiements: Array<{
     montant: number;
     date: string;
-    type: 'espece' | 'mobilemoney' | 'prisencharge';
+    type: "espece" | "mobilemoney" | "prisencharge";
   }>;
   docteur_id?: number; // Ajout du docteur_id
 }
@@ -114,7 +114,8 @@ export interface ConsultationResponse {
   id: number;
   user_id: number;
   docteur_id?: number; // Ajout du docteur_id
-  docteur?: { // Ajout des informations du docteur
+  docteur?: {
+    // Ajout des informations du docteur
     id: number;
     name: string;
     prenom: string;
@@ -167,7 +168,7 @@ export interface ConsultationResponse {
     consultation_id: number;
     montant: string;
     date_paiement: string;
-    type: 'espece' | 'mobilemoney' | 'prisencharge';
+    type: "espece" | "mobilemoney" | "prisencharge";
   }>;
   antecedents: Array<{
     id: number;
@@ -186,7 +187,7 @@ export interface PaymentRequest {
   consultation_id: number;
   montant: string;
   date_paiement: string;
-  type: 'espece' | 'mobilemoney' | 'prisencharge';
+  type: "espece" | "mobilemoney" | "prisencharge";
   numero_mobile?: string;
   numero_dossier?: string;
   organisme?: string;
@@ -227,7 +228,7 @@ export interface PaymentResponse {
     consultation_id: number;
     montant: number;
     date_paiement: string;
-    type: 'espece' | 'mobilemoney' | 'prisencharge';
+    type: "espece" | "mobilemoney" | "prisencharge";
     updated_at: string;
     created_at: string;
     id: number;
@@ -245,7 +246,7 @@ export interface PriseEnCharge {
   organisme: string;
   date_debut: string;
   date_fin?: string;
-  status: 'active' | 'expired';
+  status: "active" | "expired";
 }
 
 export interface PatientDetails {
@@ -278,7 +279,8 @@ interface PatientSearchParams {
   per_page?: number;
 }
 
-export interface CreatePatientData extends Omit<Partial<Patient>, 'antecedents'> {
+export interface CreatePatientData
+  extends Omit<Partial<Patient>, "antecedents"> {
   password?: string;
   password_confirmation?: string;
   antecedents?: Array<{
@@ -294,20 +296,23 @@ export const consultService = {
     try {
       const params: PatientSearchParams = {
         search: query,
-        per_page: 10
+        per_page: 10,
       };
 
-      const response = await axiosInstance.get(ENDPOINTS.CONSULTATIONS.CONSPATIENTS.LIST, {
-        params
-      });
+      const response = await axiosInstance.get(
+        ENDPOINTS.CONSULTATIONS.CONSPATIENTS.LIST,
+        {
+          params,
+        }
+      );
 
       // Handle both paginated and non-paginated responses
       const patients = response.data.data || response.data;
-      console.log('Search response:', patients);
-      
+      console.log("Search response:", patients);
+
       return Array.isArray(patients) ? patients : [];
     } catch (error) {
-      console.error('Search error:', error);
+      console.error("Search error:", error);
       throw error;
     }
   },
@@ -317,14 +322,14 @@ export const consultService = {
       const response = await axiosInstance.get(
         ENDPOINTS.CONSULTATIONS.CONSPATIENTS.GET_BY_ID(patientId)
       );
-      
+
       if (response.data) {
-        console.log('Patient details:', response.data);
+        console.log("Patient details:", response.data);
         return response.data;
       }
-      throw new Error('Patient non trouvé');
+      throw new Error("Patient non trouvé");
     } catch (error) {
-      console.error('Error fetching patient details:', error);
+      console.error("Error fetching patient details:", error);
       throw error;
     }
   },
@@ -333,79 +338,100 @@ export const consultService = {
       const formattedData = {
         ...patientData,
         role_id: 4,
-        password: 'DefaultPass123!',
-        password_confirmation: 'DefaultPass123!',
-        antecedents: patientData.antecedents?.map(ant => ({
+        password: "DefaultPass123!",
+        password_confirmation: "DefaultPass123!",
+        antecedents: patientData.antecedents?.map((ant) => ({
           titre: ant.titre,
-          description: ant.description || null
+          description: ant.description || null,
         })),
         etatGeneral: patientData.etatGeneral || null,
-        observations: patientData.observations || null
+        observations: patientData.observations || null,
       };
 
-      console.log('Creating patient with data:', formattedData);
+      console.log("Creating patient with data:", formattedData);
 
-      const response = await axiosInstance.post(ENDPOINTS.CONSULTATIONS.CONSPATIENTS.CREATE, formattedData);
-      
+      const response = await axiosInstance.post(
+        ENDPOINTS.CONSULTATIONS.CONSPATIENTS.CREATE,
+        formattedData
+      );
+
       if (response.data) {
-        console.log('Created patient:', response.data);
+        console.log("Created patient:", response.data);
         return response.data;
       }
-      throw new Error('Erreur lors de la création du patient');
+      throw new Error("Erreur lors de la création du patient");
     } catch (error: any) {
-      console.error('Error creating patient:', error.response?.data || error.message);
+      console.error(
+        "Error creating patient:",
+        error.response?.data || error.message
+      );
       throw error.response?.data || error;
     }
   },
-  createConsultation: async (consultationData: Consultation): Promise<ConsultationResponse> => {
+  createConsultation: async (
+    consultationData: Consultation
+  ): Promise<ConsultationResponse> => {
     try {
-      const defaultPassword = 'DefaultPass123!';
-      
+      const defaultPassword = "DefaultPass123!";
+
       // Récupérer l'utilisateur connecté depuis localStorage
-      const userStr = localStorage.getItem('user');
+      const userStr = localStorage.getItem("user");
       const currentUser = userStr ? JSON.parse(userStr) : null;
-      
+
       const formattedData = {
         patient: {
-          name: consultationData.patient.name || '',
-          prenom: consultationData.patient.prenom || '',
-          email: consultationData.patient.email || '',
+          name: consultationData.patient.name || "",
+          prenom: consultationData.patient.prenom || "",
+          email: consultationData.patient.email || "",
           role_id: 4,
           password: defaultPassword,
           password_confirmation: defaultPassword,
-          numeroTelephone: consultationData.patient.numeroTelephone || '',
+          numeroTelephone: consultationData.patient.numeroTelephone || "",
           date_naissance: consultationData.patient.date_naissance || null,
-          adresse: consultationData.patient.adresse || ''
+          adresse: consultationData.patient.adresse || "",
         },
         date_consultation: consultationData.date_consultation,
         nb_seances: Number(consultationData.nb_seances),
         total: Number(consultationData.total).toFixed(2),
-        observation: consultationData.observation?.trim() || '',
+        observation: consultationData.observation?.trim() || "",
         temperature: Number(consultationData.temperature).toFixed(1),
         tension: String(consultationData.tension).substring(0, 15),
-        antecedents: consultationData.antecedents.map(ant => ({
+        antecedents: consultationData.antecedents.map((ant) => ({
           titre: ant.titre.trim(),
-          description: ant.description?.trim() || null
+          description: ant.description?.trim() || null,
         })),
         traitements: consultationData.traitements,
         produits: consultationData.produits,
         paiements: [
-          ...(consultationData.paiement_initial ? [{
-            montant: Number(consultationData.paiement_initial.montant).toFixed(2),
-            date: consultationData.paiement_initial.date,
-            type: 'espece'
-          }] : []),
-          ...consultationData.paiements
+          ...(consultationData.paiement_initial
+            ? [
+                {
+                  montant: Number(
+                    consultationData.paiement_initial.montant
+                  ).toFixed(2),
+                  date: consultationData.paiement_initial.date,
+                  type: "espece",
+                },
+              ]
+            : []),
+          ...consultationData.paiements,
         ],
-        docteur_id: currentUser?.id || consultationData.docteur_id // Ajouter l'ID du docteur
+        docteur_id: currentUser?.id || consultationData.docteur_id, // Ajouter l'ID du docteur
       };
 
       // Validate required fields
-      if (!formattedData.patient.name || !formattedData.patient.prenom || !formattedData.patient.email) {
-        throw new Error('Les informations du patient sont incomplètes');
+      if (
+        !formattedData.patient.name ||
+        !formattedData.patient.prenom ||
+        !formattedData.patient.email
+      ) {
+        throw new Error("Les informations du patient sont incomplètes");
       }
 
-      console.log('Sending formatted data:', JSON.stringify(formattedData, null, 2));
+      console.log(
+        "Sending formatted data:",
+        JSON.stringify(formattedData, null, 2)
+      );
 
       const response = await axiosInstance.post(
         ENDPOINTS.CONSULTATIONS.CREATE,
@@ -413,7 +439,7 @@ export const consultService = {
       );
 
       if (!response.data) {
-        throw new Error('Réponse vide du serveur');
+        throw new Error("Réponse vide du serveur");
       }
 
       return response.data;
@@ -427,57 +453,63 @@ export const consultService = {
   },
   getTreatments: async (): Promise<Treatment[]> => {
     try {
-      const response = await axiosInstance.get(ENDPOINTS.CONSULTATIONS.TREATMENTS);
-      console.log('Treatments response:', response.data);
-      
+      const response = await axiosInstance.get(
+        ENDPOINTS.CONSULTATIONS.TREATMENTS
+      );
+      console.log("Treatments response:", response.data);
+
       if (Array.isArray(response.data)) {
-        return response.data.map(item => ({
+        return response.data.map((item) => ({
           id: item.id,
           nom: item.nom,
           prix: item.prix,
           prixprisenchager: item.prixprisenchager || null,
           created_at: item.created_at || new Date().toISOString(),
           updated_at: item.updated_at || new Date().toISOString(),
-          services: item.services || []
+          services: item.services || [],
         }));
       }
       return [];
     } catch (error) {
-      console.error('Error fetching treatments:', error);
+      console.error("Error fetching treatments:", error);
       return [];
     }
   },
   getProducts: async (): Promise<Product[]> => {
     try {
       const response = await axiosInstance.get(ENDPOINTS.STOCK.LIST);
-      console.log('Stock response:', response.data); // Debug log pour voir la structure
-      
+      console.log("Stock response:", response.data); // Debug log pour voir la structure
+
       if (Array.isArray(response.data)) {
-        return response.data.map(item => ({
+        return response.data.map((item) => ({
           id: item.id,
-          nom: item.nom,           // Utilisez le bon nom de champ
+          nom: item.nom, // Utilisez le bon nom de champ
           description: item.description,
           prix: item.prix,
           quantite: item.quantite,
-          status: item.status
+          status: item.status,
         }));
       }
       return [];
     } catch (error) {
-      console.error('Error fetching stock:', error);
+      console.error("Error fetching stock:", error);
       return [];
     }
   },
-  getConsultations: async (): Promise<{consultations: ConsultationResponse[]}> => {
+  getConsultations: async (): Promise<{
+    consultations: ConsultationResponse[];
+  }> => {
     try {
       const response = await axiosInstance.get(ENDPOINTS.CONSULTATIONS.LIST);
       return response.data;
     } catch (error) {
-      console.error('Error fetching consultations:', error);
+      console.error("Error fetching consultations:", error);
       throw error;
     }
   },
-  validateSeance: async (consultationId: number): Promise<ConsultationResponse> => {
+  validateSeance: async (
+    consultationId: number
+  ): Promise<ConsultationResponse> => {
     const maxRetries = 3;
     let attempt = 0;
 
@@ -490,50 +522,63 @@ export const consultService = {
         return response.data;
       } catch (error: any) {
         attempt++;
-        
+
         if (attempt === maxRetries) {
-          console.error(`Failed to validate seance after ${maxRetries} attempts:`, error);
-          throw new Error('La validation de la séance a échoué. Veuillez réessayer.');
+          console.error(
+            `Failed to validate seance after ${maxRetries} attempts:`,
+            error
+          );
+          throw new Error(
+            "La validation de la séance a échoué. Veuillez réessayer."
+          );
         }
-        
+
         // Wait before retrying
-        await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+        await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
       }
     }
 
-    throw new Error('La validation de la séance a échoué. Veuillez réessayer.');
+    throw new Error("La validation de la séance a échoué. Veuillez réessayer.");
   },
-  makePayment: async (paymentData: PaymentRequest): Promise<PaymentResponse> => {
+  makePayment: async (
+    paymentData: PaymentRequest
+  ): Promise<PaymentResponse> => {
     try {
       // Validate payment data
       if (!paymentData.consultation_id) {
-        throw new Error('ID de consultation manquant');
+        throw new Error("ID de consultation manquant");
       }
-      if (!paymentData.montant || isNaN(Number(paymentData.montant)) || Number(paymentData.montant) <= 0) {
-        throw new Error('Montant de paiement invalide');
+      if (
+        !paymentData.montant ||
+        isNaN(Number(paymentData.montant)) ||
+        Number(paymentData.montant) <= 0
+      ) {
+        throw new Error("Montant de paiement invalide");
       }
       if (!paymentData.date_paiement) {
-        throw new Error('Date de paiement manquante');
+        throw new Error("Date de paiement manquante");
       }
       if (!paymentData.type) {
-        throw new Error('Type de paiement manquant');
+        throw new Error("Type de paiement manquant");
       }
 
       // Type-specific validations
-      if (paymentData.type === 'mobilemoney' && !paymentData.numero_mobile) {
-        throw new Error('Numéro de téléphone mobile requis pour le paiement mobile');
+      if (paymentData.type === "mobilemoney" && !paymentData.numero_mobile) {
+        throw new Error(
+          "Numéro de téléphone mobile requis pour le paiement mobile"
+        );
       }
-      if (paymentData.type === 'prisencharge') {
+      if (paymentData.type === "prisencharge") {
         if (!paymentData.numero_dossier) {
-          throw new Error('Numéro de dossier requis pour la prise en charge');
+          throw new Error("Numéro de dossier requis pour la prise en charge");
         }
         if (!paymentData.organisme) {
-          throw new Error('Organisme requis pour la prise en charge');
+          throw new Error("Organisme requis pour la prise en charge");
         }
       }
 
       // Continue with payment processing
-      console.log('[Payment] Starting payment process:', paymentData);
+      console.log("[Payment] Starting payment process:", paymentData);
 
       // Get initial remaining amount
       const initialResponse = await axiosInstance.get(
@@ -543,15 +588,17 @@ export const consultService = {
       const initialAmount = Number(initialResponse.data.payementrestant);
       const paymentAmount = Number(paymentData.montant);
 
-      console.log('[Payment] Initial state:', { initialAmount, paymentAmount });
+      console.log("[Payment] Initial state:", { initialAmount, paymentAmount });
 
       // Validate payment amount
       if (paymentAmount <= 0) {
-        throw new Error('Le montant du paiement doit être supérieur à 0');
+        throw new Error("Le montant du paiement doit être supérieur à 0");
       }
 
       if (paymentAmount > initialAmount) {
-        throw new Error('Le montant du paiement ne peut pas dépasser le montant restant');
+        throw new Error(
+          "Le montant du paiement ne peut pas dépasser le montant restant"
+        );
       }
 
       // Make the payment request
@@ -562,25 +609,25 @@ export const consultService = {
           montant: paymentAmount.toString(),
           date_paiement: paymentData.date_paiement,
           type: paymentData.type,
-          ...(paymentData.type === 'mobilemoney' && { 
-            numero_mobile: paymentData.numero_mobile 
+          ...(paymentData.type === "mobilemoney" && {
+            numero_mobile: paymentData.numero_mobile,
           }),
-          ...(paymentData.type === 'prisencharge' && {
+          ...(paymentData.type === "prisencharge" && {
             numero_dossier: paymentData.numero_dossier,
-            organisme: paymentData.organisme
-          })
+            organisme: paymentData.organisme,
+          }),
         }
       );
 
-      console.log('[Payment] Payment response:', response.data);
+      console.log("[Payment] Payment response:", response.data);
 
       // If we have a successful response, return it immediately
       if (response.data && response.status === 200) {
         // Calculate expected remaining amount
         const expectedRemaining = Math.max(0, initialAmount - paymentAmount);
-        
+
         return {
-          Message: response.data.Message || 'Paiement effectué avec succès',
+          Message: response.data.Message || "Paiement effectué avec succès",
           consultation: response.data.consultation || {
             consultation_id: paymentData.consultation_id,
             montant: paymentAmount,
@@ -588,170 +635,133 @@ export const consultService = {
             type: paymentData.type,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
-            id: response.data.id || Date.now()
+            id: response.data.id || Date.now(),
           },
-          "Reste à payer": response.data["Reste à payer"] !== undefined 
-            ? response.data["Reste à payer"] 
-            : expectedRemaining
+          "Reste à payer":
+            response.data["Reste à payer"] !== undefined
+              ? response.data["Reste à payer"]
+              : expectedRemaining,
         };
       }
 
-      throw new Error('Réponse invalide du serveur');
-
+      throw new Error("Réponse invalide du serveur");
     } catch (error: any) {
-      console.error('[Payment] Error:', error);
-      
+      console.error("[Payment] Error:", error);
+
       // Handle specific error cases
       if (error.response?.status === 422) {
         const validationErrors = error.response.data?.errors;
         if (validationErrors) {
-          const errorMessages = Object.values(validationErrors).flat().join(', ');
+          const errorMessages = Object.values(validationErrors)
+            .flat()
+            .join(", ");
           throw new Error(`Erreur de validation: ${errorMessages}`);
         }
       }
-      
+
       if (error.response?.status === 404) {
-        throw new Error('Consultation non trouvée');
+        throw new Error("Consultation non trouvée");
       }
-      
+
       if (error.response?.status === 500) {
-        throw new Error('Erreur serveur. Veuillez réessayer plus tard.');
+        throw new Error("Erreur serveur. Veuillez réessayer plus tard.");
       }
 
       // Return the original error message or a generic one
       throw new Error(
-        error.response?.data?.message || 
-        error.message || 
-        'Une erreur est survenue lors du paiement'
+        error.response?.data?.message ||
+          error.message ||
+          "Une erreur est survenue lors du paiement"
       );
     }
   },
 
-  getPaymentRemaining: async (consultationId: number): Promise<PaymentRemaining> => {
+  getPaymentRemaining: async (
+    consultationId: number
+  ): Promise<PaymentRemaining> => {
     try {
       const timestamp = Date.now();
       const response = await axiosInstance.get(
-        `${ENDPOINTS.CONSULTATIONS.PAYMENT.REMAINING(consultationId)}?timestamp=${timestamp}`,
+        `${ENDPOINTS.CONSULTATIONS.PAYMENT.REMAINING(
+          consultationId
+        )}?timestamp=${timestamp}`,
         {
           headers: {
-            'Cache-Control': 'no-cache, no-store, must-revalidate',
-            'Pragma': 'no-cache',
-            'Expires': '0'
-          }
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            Pragma: "no-cache",
+            Expires: "0",
+          },
         }
       );
 
       const remaining = Number(response.data.payementrestant);
-      console.log(`[Payment] Consultation ${consultationId} - Montant restant:`, remaining);
-      
+      console.log(
+        `[Payment] Consultation ${consultationId} - Montant restant:`,
+        remaining
+      );
+
       return {
-        payementrestant: remaining
+        payementrestant: remaining,
       };
     } catch (error) {
-      console.error('Erreur lors de la récupération du montant restant:', error);
+      console.error(
+        "Erreur lors de la récupération du montant restant:",
+        error
+      );
       throw error;
     }
   },
 
   // Méthode pour uploader des photos médicales
-  uploadMedicalPhotos: async (photoData: PhotoUploadRequest): Promise<PhotoUploadResponse> => {
+  uploadMedicalPhotos: async (
+    photoData: PhotoUploadRequest
+  ): Promise<PhotoUploadResponse> => {
     try {
-      console.log('[Photo Upload] Starting upload process...');
-      console.log('[Photo Upload] Photo data:', {
-        consultation_id: photoData.consultation_id,
-        photos_count: photoData.photos.length,
-        date: photoData.date,
-        description: photoData.description,
-        photo_type: photoData.photo_type
-      });
-
       const formData = new FormData();
-      
+
       // Ajouter les photos
       photoData.photos.forEach((photo, index) => {
-        console.log(`[Photo Upload] Adding photo ${index}:`, {
-          name: photo.name,
-          size: photo.size,
-          type: photo.type
-        });
         formData.append(`photos[${index}]`, photo);
       });
-      
-      // Ajouter les autres données
-      formData.append('consultation_id', photoData.consultation_id.toString());
-      formData.append('date', photoData.date);
-      formData.append('description', photoData.description);
-      formData.append('photo_type', photoData.photo_type);
-      formData.append('category', 'medical');
-      formData.append('photoable_type', 'App\\Models\\Consultation');
 
-      console.log('[Photo Upload] FormData contents:');
-      for (let [key, value] of formData.entries()) {
-        console.log(`  ${key}:`, value);
-      }
+      // Remplacer consultation_id par photoable_id pour correspondre au backend
+      formData.append("photoable_id", photoData.consultation_id.toString());
+      formData.append("date", photoData.date);
+      formData.append("description", photoData.description);
+      formData.append("photo_type", photoData.photo_type);
+      formData.append("category", "medical");
+      formData.append("photoable_type", "Consultation");
 
-      console.log('[Photo Upload] Sending request to:', `${API_URL}${ENDPOINTS.PHOTOS.UPLOAD}`);
+      const response = await axiosInstance.post(
+        ENDPOINTS.PHOTOS.UPLOAD,
+        formData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        }
+      );
 
-      const response = await axiosInstance.post(ENDPOINTS.PHOTOS.UPLOAD, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
-
-      console.log('[Photo Upload] Response received:', response.data);
       return response.data;
     } catch (error: any) {
-      console.error('[Photo Upload] Error details:', {
-        message: error.message,
-        status: error.response?.status,
-        statusText: error.response?.statusText,
-        data: error.response?.data,
-        url: error.config?.url,
-        method: error.config?.method
-      });
-      
-      if (error.response?.data) {
-        throw error.response.data;
-      }
+      console.error("[Photo Upload] Error details:", error);
       throw error;
     }
   },
 
   // Méthode pour récupérer les photos d'une consultation
-  getConsultationPhotos: async (consultationId: number): Promise<MedicalPhoto[]> => {
+  getConsultationPhotos: async (
+    consultationId: number
+  ): Promise<MedicalPhoto[]> => {
     try {
-      console.log(`[Consultation Photos] Fetching photos for consultation ${consultationId}`);
-      
-      const response = await axiosInstance.get(`${API_URL}/consultations/${consultationId}/photos`);
-      
-      console.log('[Consultation Photos] Response received:', response.data);
-      
-      // Si la réponse est un tableau, le retourner directement
-      if (Array.isArray(response.data)) {
-        return response.data;
-      }
-      
-      // Si la réponse a une structure différente, essayer d'extraire les données
-      if (response.data.data && Array.isArray(response.data.data)) {
-        return response.data.data;
-      }
-      
-      // Si aucune structure attendue, retourner un tableau vide
-      console.warn('[Consultation Photos] Unexpected response structure:', response.data);
-      return [];
+      const response = await axiosInstance.get(
+        `/photos/consultations/${consultationId}/photos`
+      );
+      // On suppose que response.data est le tableau des photos
+      return response.data;
     } catch (error: any) {
-      console.error('[Consultation Photos] Error details:', {
-        message: error.message,
-        status: error.response?.status,
-        statusText: error.response?.statusText,
-        data: error.response?.data,
-        url: error.config?.url,
-        method: error.config?.method
-      });
-      
-      // Retourner un tableau vide en cas d'erreur pour ne pas casser l'interface
-      return [];
+      console.error("Error fetching consultation photos:", error);
+      throw error;
     }
   },
-
-  };
+};

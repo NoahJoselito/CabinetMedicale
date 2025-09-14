@@ -1,12 +1,28 @@
 "use client";
 import { useEffect, useState, use, useRef } from "react";
-import { Folder, ArrowLeft, User, FileText, Stethoscope, Camera, Upload, X, Calendar, Image as ImageIcon, ZoomIn, Eye } from "lucide-react";
+import {
+  Folder,
+  ArrowLeft,
+  User,
+  FileText,
+  Stethoscope,
+  Camera,
+  Upload,
+  X,
+  Calendar,
+  Image as ImageIcon,
+  ZoomIn,
+  Eye,
+} from "lucide-react";
 import Link from "next/link";
 import { dossierService, PatientDetail } from "@/services/dossierService";
-import { medicalPhotoService, MedicalPhoto } from "@/services/medicalPhotoService";
+import {
+  medicalPhotoService,
+  MedicalPhoto,
+} from "@/services/medicalPhotoService";
 import { photoService, Photo } from "@/services/photoService";
 import { consultService } from "@/services/consultService";
-import { toast } from 'react-toastify';
+import { toast } from "react-toastify";
 
 const LoadingSpinner = () => (
   <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100">
@@ -18,10 +34,14 @@ const LoadingSpinner = () => (
           <div className="absolute top-0 left-0 w-full h-full border-4 border-blue-500 rounded-full animate-spin border-t-transparent"></div>
         </div>
         <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-          <img src="/img/laod.png" alt="Loading" className="w-16 h-16 rounded-full" />
+          <img
+            src="/img/laod.png"
+            alt="Loading"
+            className="w-16 h-16 rounded-full"
+          />
         </div>
       </div>
-      
+
       {/* Pulse effect for text */}
       <div className="space-y-3 text-center">
         <h3 className="text-xl font-semibold text-gray-800 animate-pulse">
@@ -53,19 +73,28 @@ const DossierPage = ({ params }: { params: Promise<{ id: string }> }) => {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [photoType, setPhotoType] = useState("");
   const [photoDescription, setPhotoDescription] = useState("");
-  const [uploadDate, setUploadDate] = useState(new Date().toISOString().split('T')[0]);
+  const [uploadDate, setUploadDate] = useState(
+    new Date().toISOString().split("T")[0]
+  );
   const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null);
-  const [uploadProgress, setUploadProgress] = useState<{[key: string]: number}>({});
+  const [uploadProgress, setUploadProgress] = useState<{
+    [key: string]: number;
+  }>({});
   const [consultationPhotos, setConsultationPhotos] = useState<any[]>([]);
-  const [selectedConsultationId, setSelectedConsultationId] = useState<number | null>(null);
-  const [showConsultationPhotosModal, setShowConsultationPhotosModal] = useState(false);
-  const [loadingConsultationPhotos, setLoadingConsultationPhotos] = useState(false);
+  const [selectedConsultationId, setSelectedConsultationId] = useState<
+    number | null
+  >(null);
+  const [showConsultationPhotosModal, setShowConsultationPhotosModal] =
+    useState(false);
+  const [loadingConsultationPhotos, setLoadingConsultationPhotos] =
+    useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     // Récupérer l'utilisateur connecté pour fallback docteur
     try {
-      const userStr = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
+      const userStr =
+        typeof window !== "undefined" ? localStorage.getItem("user") : null;
       const user = userStr ? JSON.parse(userStr) : null;
       setCurrentUser(user);
     } catch (_) {
@@ -76,23 +105,32 @@ const DossierPage = ({ params }: { params: Promise<{ id: string }> }) => {
       try {
         const data = await dossierService.getPatientDetails(resolvedParams.id);
         setPatient(data);
-        
+
         // Charger les photos du patient avec le nouveau système
         try {
-          const patientPhotos = await dossierService.getPatientPhotos(data.patient.id);
+          const patientPhotos = await dossierService.getPatientPhotos(
+            data.patient.id
+          );
           setPhotos(patientPhotos);
         } catch (photoError) {
-          console.warn('Erreur lors du chargement des photos avec le nouveau système, fallback vers l\'ancien:', photoError);
+          console.warn(
+            "Erreur lors du chargement des photos avec le nouveau système, fallback vers l'ancien:",
+            photoError
+          );
           // Fallback vers l'ancien système
           try {
-            const legacyPatientPhotos = await medicalPhotoService.getPatientPhotos(data.patient.id);
+            const legacyPatientPhotos =
+              await medicalPhotoService.getPatientPhotos(data.patient.id);
             setLegacyPhotos(legacyPatientPhotos);
           } catch (legacyError) {
-            console.warn('Erreur également avec l\'ancien système:', legacyError);
+            console.warn(
+              "Erreur également avec l'ancien système:",
+              legacyError
+            );
           }
         }
       } catch (err) {
-        setError('Erreur lors du chargement des données du patient');
+        setError("Erreur lors du chargement des données du patient");
         console.error(err);
       } finally {
         setLoading(false);
@@ -108,26 +146,26 @@ const DossierPage = ({ params }: { params: Promise<{ id: string }> }) => {
 
   const patientData = patient.patient;
   const formatDateString = (input: string): string => {
-    if (!input) return 'Non renseigné';
+    if (!input) return "Non renseigné";
     const isoMatch = /^\d{4}-\d{2}-\d{2}/.test(input);
     if (isoMatch) return input.slice(0, 10);
     const parsed = new Date(input);
     if (isNaN(parsed.getTime())) return input;
     const year = parsed.getFullYear();
-    const month = String(parsed.getMonth() + 1).padStart(2, '0');
-    const day = String(parsed.getDate()).padStart(2, '0');
+    const month = String(parsed.getMonth() + 1).padStart(2, "0");
+    const day = String(parsed.getDate()).padStart(2, "0");
     return `${year}-${month}-${day}`;
   };
 
   const photoTypes = [
     "Radiographie",
-    "Échographie", 
+    "Échographie",
     "Scanner",
     "IRM",
     "Photo clinique",
     "Photo de blessure",
     "Photo de cicatrice",
-    "Autre"
+    "Autre",
   ];
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -139,13 +177,13 @@ const DossierPage = ({ params }: { params: Promise<{ id: string }> }) => {
   };
 
   const removeFile = (index: number) => {
-    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
   const clearAllFiles = () => {
     setSelectedFiles([]);
     if (fileInputRef.current) {
-      fileInputRef.current.value = '';
+      fileInputRef.current.value = "";
     }
   };
 
@@ -154,70 +192,73 @@ const DossierPage = ({ params }: { params: Promise<{ id: string }> }) => {
 
     setUploading(true);
     setUploadProgress({});
-    
+
     const uploadPromises = selectedFiles.map(async (file, index) => {
       const fileKey = `${file.name}-${index}`;
-      
+
       try {
-        setUploadProgress(prev => ({ ...prev, [fileKey]: 0 }));
-        
+        setUploadProgress((prev) => ({ ...prev, [fileKey]: 0 }));
+
         const uploadData = {
           patient_id: patient.patient.id,
           photo_type: photoType,
           photo: file,
           description: photoDescription,
-          upload_date: uploadDate
+          upload_date: uploadDate,
         };
 
         // Essayer d'abord le nouveau système
         try {
           const newPhoto = await dossierService.uploadMedicalPhoto(uploadData);
-          setPhotos(prev => [newPhoto, ...prev]);
-          setUploadProgress(prev => ({ ...prev, [fileKey]: 100 }));
+          setPhotos((prev) => [newPhoto, ...prev]);
+          setUploadProgress((prev) => ({ ...prev, [fileKey]: 100 }));
           return { success: true, photo: newPhoto, file: file.name };
         } catch (newSystemError) {
-          console.warn('Erreur avec le nouveau système, fallback vers l\'ancien:', newSystemError);
+          console.warn(
+            "Erreur avec le nouveau système, fallback vers l'ancien:",
+            newSystemError
+          );
           // Fallback vers l'ancien système
           const newPhoto = await medicalPhotoService.uploadPhoto(uploadData);
-          setLegacyPhotos(prev => [newPhoto, ...prev]);
-          setUploadProgress(prev => ({ ...prev, [fileKey]: 100 }));
+          setLegacyPhotos((prev) => [newPhoto, ...prev]);
+          setUploadProgress((prev) => ({ ...prev, [fileKey]: 100 }));
           return { success: true, photo: newPhoto, file: file.name };
         }
       } catch (err) {
         console.error(`Erreur lors de l'upload de ${file.name}:`, err);
-        setUploadProgress(prev => ({ ...prev, [fileKey]: -1 })); // -1 pour indiquer une erreur
+        setUploadProgress((prev) => ({ ...prev, [fileKey]: -1 })); // -1 pour indiquer une erreur
         return { success: false, error: err, file: file.name };
       }
     });
 
     try {
       const results = await Promise.all(uploadPromises);
-      
+
       // Afficher les résultats
-      const successful = results.filter(r => r.success).length;
-      const failed = results.filter(r => !r.success).length;
-      
+      const successful = results.filter((r) => r.success).length;
+      const failed = results.filter((r) => !r.success).length;
+
       if (successful > 0) {
         toast.success(`${successful} photo(s) uploadée(s) avec succès`);
       }
       if (failed > 0) {
         toast.error(`${failed} photo(s) n'ont pas pu être uploadée(s)`);
       }
-      
+
       // Reset form seulement si tout s'est bien passé
       if (failed === 0) {
         setSelectedFiles([]);
         setPhotoType("");
         setPhotoDescription("");
-        setUploadDate(new Date().toISOString().split('T')[0]);
+        setUploadDate(new Date().toISOString().split("T")[0]);
         setShowUploadForm(false);
         if (fileInputRef.current) {
-          fileInputRef.current.value = '';
+          fileInputRef.current.value = "";
         }
       }
     } catch (err) {
-      console.error('Erreur lors de l\'upload:', err);
-      toast.error('Erreur lors de l\'upload des photos');
+      console.error("Erreur lors de l'upload:", err);
+      toast.error("Erreur lors de l'upload des photos");
     } finally {
       setUploading(false);
       // Nettoyer le progress après 3 secondes
@@ -228,21 +269,26 @@ const DossierPage = ({ params }: { params: Promise<{ id: string }> }) => {
   };
 
   const handleDeletePhoto = async (photoId: number) => {
-    if (confirm('Êtes-vous sûr de vouloir supprimer cette photo ?')) {
+    if (confirm("Êtes-vous sûr de vouloir supprimer cette photo ?")) {
       try {
         // Essayer d'abord le nouveau système
         try {
           await dossierService.deleteMedicalPhoto(photoId);
-          setPhotos(prev => prev.filter(photo => photo.id !== photoId));
+          setPhotos((prev) => prev.filter((photo) => photo.id !== photoId));
         } catch (newSystemError) {
-          console.warn('Erreur avec le nouveau système, fallback vers l\'ancien:', newSystemError);
+          console.warn(
+            "Erreur avec le nouveau système, fallback vers l'ancien:",
+            newSystemError
+          );
           // Fallback vers l'ancien système
           await medicalPhotoService.deletePhoto(photoId);
-          setLegacyPhotos(prev => prev.filter(photo => photo.id !== photoId));
+          setLegacyPhotos((prev) =>
+            prev.filter((photo) => photo.id !== photoId)
+          );
         }
       } catch (err) {
-        console.error('Erreur lors de la suppression:', err);
-        alert('Erreur lors de la suppression de la photo');
+        console.error("Erreur lors de la suppression:", err);
+        alert("Erreur lors de la suppression de la photo");
       }
     }
   };
@@ -259,13 +305,16 @@ const DossierPage = ({ params }: { params: Promise<{ id: string }> }) => {
     setSelectedConsultationId(consultationId);
     setLoadingConsultationPhotos(true);
     setShowConsultationPhotosModal(true);
-    
+
     try {
       const photos = await consultService.getConsultationPhotos(consultationId);
       setConsultationPhotos(photos);
     } catch (error) {
-      console.error('Erreur lors du chargement des photos de consultation:', error);
-      toast.error('Erreur lors du chargement des photos de la consultation');
+      console.error(
+        "Erreur lors du chargement des photos de consultation:",
+        error
+      );
+      toast.error("Erreur lors du chargement des photos de la consultation");
       setConsultationPhotos([]);
     } finally {
       setLoadingConsultationPhotos(false);
@@ -284,7 +333,11 @@ const DossierPage = ({ params }: { params: Promise<{ id: string }> }) => {
   const treatingDoctor = (() => {
     const consultations = patient?.patient?.consultations || [];
     const sorted = Array.isArray(consultations)
-      ? [...consultations].sort((a: any, b: any) => new Date(b.date_consultation).getTime() - new Date(a.date_consultation).getTime())
+      ? [...consultations].sort(
+          (a: any, b: any) =>
+            new Date(b.date_consultation).getTime() -
+            new Date(a.date_consultation).getTime()
+        )
       : [];
     const fromConsult = sorted.find((c: any) => !!c?.docteur)?.docteur;
     return fromConsult || currentUser || null;
@@ -293,8 +346,10 @@ const DossierPage = ({ params }: { params: Promise<{ id: string }> }) => {
   return (
     <div className="p-6  from-gray-50 to-gray-100 min-h-screen">
       {/* Back button */}
-      <Link href="/Page/dossier" 
-            className="inline-flex items-center px-4 py-2 text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-all mb-6">
+      <Link
+        href="/Page/dossier"
+        className="inline-flex items-center px-4 py-2 text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-all mb-6"
+      >
         <ArrowLeft className="w-5 h-5 mr-2" />
         Retour à la liste
       </Link>
@@ -312,9 +367,13 @@ const DossierPage = ({ params }: { params: Promise<{ id: string }> }) => {
             <p className="text-gray-500">Dossier médical</p>
             {treatingDoctor && (
               <p className="text-sm text-gray-600 mt-1">
-                <span className="font-medium">Médecin traitant :</span> Dr. {treatingDoctor?.prenom || ''} {treatingDoctor?.name || ''}
+                <span className="font-medium">Médecin traitant :</span> Dr.{" "}
+                {treatingDoctor?.prenom || ""} {treatingDoctor?.name || ""}
                 {treatingDoctor?.specialité && (
-                  <span className="text-gray-500"> - {treatingDoctor.specialité}</span>
+                  <span className="text-gray-500">
+                    {" "}
+                    - {treatingDoctor.specialité}
+                  </span>
                 )}
               </p>
             )}
@@ -326,7 +385,7 @@ const DossierPage = ({ params }: { params: Promise<{ id: string }> }) => {
           <div className="bg-white rounded-xl shadow-lg border border-gray-100 hover:shadow-xl transition-shadow">
             <div className="p-6 border-b border-gray-100">
               <h2 className="text-xl font-semibold flex items-center text-gray-800">
-                <User className="w-6 h-6 mr-3 text-blue-500" /> 
+                <User className="w-6 h-6 mr-3 text-blue-500" />
                 Informations personnelles
               </h2>
             </div>
@@ -335,9 +394,22 @@ const DossierPage = ({ params }: { params: Promise<{ id: string }> }) => {
                 {[
                   { label: "Email", value: patientData.email },
                   { label: "Téléphone", value: patientData.numeroTelephone },
-                  { label: "Date de naissance", value: patientData.date_naissance ? formatDateString(patientData.date_naissance as unknown as string) : 'Non renseigné' },
-                  { label: "Adresse", value: patientData.adresse || 'Non renseignée' },
-                  { label: "Emploi", value: patientData.emploi || 'Non renseigné' }
+                  {
+                    label: "Date de naissance",
+                    value: patientData.date_naissance
+                      ? formatDateString(
+                          patientData.date_naissance as unknown as string
+                        )
+                      : "Non renseigné",
+                  },
+                  {
+                    label: "Adresse",
+                    value: patientData.adresse || "Non renseignée",
+                  },
+                  {
+                    label: "Emploi",
+                    value: patientData.emploi || "Non renseigné",
+                  },
                 ].map((item, index) => (
                   <div key={index} className="bg-gray-50 p-4 rounded-lg">
                     <p className="text-sm text-gray-500">{item.label}</p>
@@ -352,16 +424,23 @@ const DossierPage = ({ params }: { params: Promise<{ id: string }> }) => {
           <div className="bg-white rounded-xl shadow-lg border border-gray-100 hover:shadow-xl transition-shadow">
             <div className="p-6 border-b border-gray-100">
               <h2 className="text-xl font-semibold flex items-center text-gray-800">
-                <FileText className="w-6 h-6 mr-3 text-blue-500" /> 
+                <FileText className="w-6 h-6 mr-3 text-blue-500" />
                 Antécédents médicaux
               </h2>
             </div>
             <div className="p-6">
               <div className="space-y-4">
                 {patientData.antecedents?.map((antecedent) => (
-                  <div key={antecedent.id} className="bg-gray-50 p-4 rounded-lg">
-                    <h3 className="font-semibold text-blue-600">{antecedent.titre}</h3>
-                    <p className="text-gray-600 mt-1">{antecedent.description || 'Aucune description'}</p>
+                  <div
+                    key={antecedent.id}
+                    className="bg-gray-50 p-4 rounded-lg"
+                  >
+                    <h3 className="font-semibold text-blue-600">
+                      {antecedent.titre}
+                    </h3>
+                    <p className="text-gray-600 mt-1">
+                      {antecedent.description || "Aucune description"}
+                    </p>
                   </div>
                 ))}
               </div>
@@ -369,44 +448,53 @@ const DossierPage = ({ params }: { params: Promise<{ id: string }> }) => {
           </div>
         </div>
 
-
-
         {/* Consultations */}
         <div className="mt-6 bg-white rounded-xl shadow-lg border border-gray-100 text-gray-800">
           <div className="p-6 border-b border-gray-100">
             <h2 className="text-xl font-semibold flex items-center text-gray-800">
-              <Stethoscope className="w-6 h-6 mr-3 text-blue-500" /> 
+              <Stethoscope className="w-6 h-6 mr-3 text-blue-500" />
               Historique des consultations
             </h2>
           </div>
           <div className="p-6">
             <div className="space-y-6">
               {patientData.consultations?.map((consultation) => (
-                <div key={consultation.id} 
-                     className="bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl p-6 hover:shadow-md transition-all">
+                <div
+                  key={consultation.id}
+                  className="bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl p-6 hover:shadow-md transition-all"
+                >
                   <div className="flex justify-between items-start mb-4">
                     <div>
                       <h3 className="text-lg font-semibold text-blue-600">
-                        Consultation du {new Date(consultation.date_consultation).toLocaleDateString('fr-FR', {
-                          day: 'numeric',
-                          month: 'long',
-                          year: 'numeric'
+                        Consultation du{" "}
+                        {new Date(
+                          consultation.date_consultation
+                        ).toLocaleDateString("fr-FR", {
+                          day: "numeric",
+                          month: "long",
+                          year: "numeric",
                         })}
                       </h3>
                       {(() => {
                         const doc = consultation.docteur || treatingDoctor;
                         return doc ? (
                           <p className="text-sm text-gray-600 mt-1">
-                            <span className="font-medium">Docteur :</span> Dr. {doc.prenom || ''} {doc.name || ''}
+                            <span className="font-medium">Docteur :</span> Dr.{" "}
+                            {doc.prenom || ""} {doc.name || ""}
                             {doc.specialité && (
-                              <span className="text-gray-500"> - {doc.specialité}</span>
+                              <span className="text-gray-500">
+                                {" "}
+                                - {doc.specialité}
+                              </span>
                             )}
                           </p>
                         ) : null;
                       })()}
                     </div>
                     <button
-                      onClick={() => handleViewConsultationPhotos(consultation.id)}
+                      onClick={() =>
+                        handleViewConsultationPhotos(consultation.id)
+                      }
                       className="cursor-pointer inline-flex items-center px-3 py-2 text-sm font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
                     >
                       <Eye className="w-4 h-4 mr-2" />
@@ -416,18 +504,38 @@ const DossierPage = ({ params }: { params: Promise<{ id: string }> }) => {
 
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
                     {[
-                      { label: "Température", value: `${consultation.temperature}°C`, color: "blue" },
-                      { label: "Tension", value: consultation.tension, color: "blue" },
-                      { label: "Séances", value: consultation.nb_seances, color: "blue" },
+                      {
+                        label: "Température",
+                        value: `${consultation.temperature}°C`,
+                        color: "blue",
+                      },
+                      {
+                        label: "Tension",
+                        value: consultation.tension,
+                        color: "blue",
+                      },
+                      {
+                        label: "Séances",
+                        value: consultation.nb_seances,
+                        color: "blue",
+                      },
                     ].map((item, index) => (
-                      <div key={index} className={`bg-${item.color}-50 p-4 rounded-lg`}>
-                        <p className={`text-sm text-${item.color}-600 mb-1`}>{item.label}</p>
+                      <div
+                        key={index}
+                        className={`bg-${item.color}-50 p-4 rounded-lg`}
+                      >
+                        <p className={`text-sm text-${item.color}-600 mb-1`}>
+                          {item.label}
+                        </p>
                         <p className="font-semibold text-lg">{item.value}</p>
                       </div>
                     ))}
                   </div>
 
-                  <p className="mt-2"><span className="font-semibold">Observation:</span> {consultation.observation}</p>
+                  <p className="mt-2">
+                    <span className="font-semibold">Observation:</span>{" "}
+                    {consultation.observation}
+                  </p>
                 </div>
               ))}
             </div>
@@ -437,19 +545,23 @@ const DossierPage = ({ params }: { params: Promise<{ id: string }> }) => {
 
       {/* Photo Modal */}
       {selectedPhoto && (
-        <div 
+        <div
           className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4"
           onClick={closeModal}
         >
-          <div 
+          <div
             className="bg-white rounded-xl max-w-4xl max-h-[90vh] overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="p-4 border-b border-gray-200 flex justify-between items-center">
               <div>
-                <h3 className="text-lg font-semibold text-gray-800">{selectedPhoto.photo_type}</h3>
+                <h3 className="text-lg font-semibold text-gray-800">
+                  {selectedPhoto.photo_type}
+                </h3>
                 <p className="text-sm text-gray-500">
-                  {new Date(selectedPhoto.upload_date).toLocaleDateString('fr-FR')}
+                  {new Date(selectedPhoto.upload_date).toLocaleDateString(
+                    "fr-FR"
+                  )}
                 </p>
               </div>
               <button
@@ -461,17 +573,26 @@ const DossierPage = ({ params }: { params: Promise<{ id: string }> }) => {
             </div>
             <div className="p-4">
               <img
-                src={selectedPhoto.photo_path}
+                src={
+                  (
+                    selectedPhoto.photo_path || selectedPhoto.file_path
+                  ).startsWith("http")
+                    ? selectedPhoto.photo_path || selectedPhoto.file_path
+                    : process.env.NEXT_PUBLIC_API_URL +
+                      (selectedPhoto.photo_path || selectedPhoto.file_path)
+                }
                 alt={`Photo médicale - ${selectedPhoto.photo_type}`}
                 className="w-full h-auto max-h-[70vh] object-contain"
                 onError={(e) => {
                   const target = e.target as HTMLImageElement;
-                  target.src = '/img/placeholder-medical.svg';
+                  target.src = "/img/placeholder-medical.svg";
                 }}
               />
               {selectedPhoto.description && (
                 <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-                  <h4 className="font-semibold text-gray-800 mb-2">Description :</h4>
+                  <h4 className="font-semibold text-gray-800 mb-2">
+                    Description :
+                  </h4>
                   <p className="text-gray-600">{selectedPhoto.description}</p>
                 </div>
               )}
@@ -482,11 +603,11 @@ const DossierPage = ({ params }: { params: Promise<{ id: string }> }) => {
 
       {/* Consultation Photos Modal */}
       {showConsultationPhotosModal && (
-        <div 
+        <div
           className="fixed inset-0 bg-black/75 flex items-center justify-center z-50 p-4"
           onClick={closeConsultationPhotosModal}
         >
-          <div 
+          <div
             className="bg-white rounded-xl max-w-6xl max-h-[90vh] overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
@@ -496,7 +617,8 @@ const DossierPage = ({ params }: { params: Promise<{ id: string }> }) => {
                   Photos de la consultation
                 </h3>
                 <p className="text-sm text-gray-500">
-                  {selectedConsultationId && `Consultation #${selectedConsultationId}`}
+                  {selectedConsultationId &&
+                    `Consultation #${selectedConsultationId}`}
                 </p>
               </div>
               <button
@@ -529,7 +651,7 @@ const DossierPage = ({ params }: { params: Promise<{ id: string }> }) => {
                           className="w-full h-full object-cover hover:scale-105 transition-transform"
                           onError={(e) => {
                             const target = e.target as HTMLImageElement;
-                            target.src = '/img/placeholder-medical.svg';
+                            target.src = "/img/placeholder-medical.svg";
                           }}
                         />
                       </div>
@@ -538,7 +660,9 @@ const DossierPage = ({ params }: { params: Promise<{ id: string }> }) => {
                           {photo.photo_type}
                         </h4>
                         <p className="text-xs text-gray-500">
-                          {new Date(photo.upload_date).toLocaleDateString('fr-FR')}
+                          {new Date(photo.upload_date).toLocaleDateString(
+                            "fr-FR"
+                          )}
                         </p>
                         {photo.description && (
                           <p className="text-xs text-gray-600 line-clamp-2">
