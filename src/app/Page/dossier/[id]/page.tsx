@@ -573,15 +573,16 @@ const DossierPage = ({ params }: { params: Promise<{ id: string }> }) => {
             </div>
             <div className="p-4">
               <img
-                src={
-                  (
-                    selectedPhoto.photo_path || selectedPhoto.file_path
-                  ).startsWith("http")
-                    ? selectedPhoto.photo_path || selectedPhoto.file_path
-                    : process.env.NEXT_PUBLIC_API_URL +
-                      (selectedPhoto.photo_path || selectedPhoto.file_path)
-                }
-                alt={`Photo médicale - ${selectedPhoto.photo_type}`}
+                src={(() => {
+                  const path = selectedPhoto?.photo_path || selectedPhoto?.file_path || "";
+                  if (!path) {
+                    return "/img/placeholder-medical.svg";
+                  }
+                  return path.startsWith("http")
+                    ? path
+                    : (process.env.NEXT_PUBLIC_API_URL || "") + path;
+                })()}
+                alt={`Photo médicale - ${selectedPhoto?.photo_type ?? "Photo"}`}
                 className="w-full h-auto max-h-[70vh] object-contain"
                 onError={(e) => {
                   const target = e.target as HTMLImageElement;

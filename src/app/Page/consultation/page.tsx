@@ -133,7 +133,6 @@ export default function DossierMedical() {
   const [cardExpiry, setCardExpiry] = useState('');
   const [cardCVC, setCardCVC] = useState('');
   const [mobileNumber, setMobileNumber] = useState('');
-  const [mobileCode, setMobileCode] = useState('');
   const [validateAllSeances, setValidateAllSeances] = useState(false);
   const [numeroDossier, setNumeroDossier] = useState('');
   const [organisme, setOrganisme] = useState('');
@@ -223,7 +222,7 @@ export default function DossierMedical() {
           toast.success(`${remainingSeances} séances ont été validées avec succès`);
           toast.info('Traitement terminé');
         } else {
-          const response = await consultService.validateSeance(currentPatient.id);
+          await consultService.validateSeance(currentPatient.id);
           toast.success('Séance validée avec succès');
           
           // Check if this was the last seance
@@ -239,9 +238,10 @@ export default function DossierMedical() {
         setShowSeanceModal(false);
         setCurrentPatient(null);
         setValidateAllSeances(false);
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error('Failed to validate seance:', error);
-        toast.error(error.message || 'Une erreur est survenue lors de la validation de la séance');
+        const message = error instanceof Error ? error.message : 'Une erreur est survenue lors de la validation de la séance';
+        toast.error(message);
       } finally {
         setIsValidating(false);
       }
@@ -326,18 +326,19 @@ export default function DossierMedical() {
       // Reset forms
       resetPaymentForms();
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('[UI] Payment error:', error);
       
       // Show specific error message
-      if (error.message.includes('validation')) {
+      const errMsg = error instanceof Error ? error.message : '';
+      if (errMsg.includes('validation')) {
         toast.error('Données de paiement invalides. Vérifiez les informations saisies.');
-      } else if (error.message.includes('non trouvée')) {
+      } else if (errMsg.includes('non trouvée')) {
         toast.error('Consultation non trouvée. Veuillez actualiser la page.');
-      } else if (error.message.includes('serveur')) {
+      } else if (errMsg.includes('serveur')) {
         toast.error('Problème de connexion. Veuillez réessayer.');
       } else {
-        toast.error(error.message || 'Erreur lors du paiement');
+        toast.error(errMsg || 'Erreur lors du paiement');
       }
     } finally {
       setIsProcessingPayment(false);
@@ -385,7 +386,6 @@ export default function DossierMedical() {
     setCardExpiry('');
     setCardCVC('');
     setMobileNumber('');
-    setMobileCode('');
     setNumeroDossier('');
     setOrganisme('');
     setSelectedFiles([]);
