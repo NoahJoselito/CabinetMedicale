@@ -168,6 +168,20 @@ const DossierPage = ({ params }: { params: Promise<{ id: string }> }) => {
     "Autre",
   ];
 
+  const resolvePhotoUrl = (rawPath?: string): string => {
+    if (!rawPath) return "/img/placeholder-medical.svg";
+    const normalized = String(rawPath)
+      .replace(/\\\\/g, "/")
+      .replace(/\\/g, "/");
+    if (/^https?:\/\//i.test(normalized) || normalized.startsWith("data:")) {
+      return normalized;
+    }
+    const base = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
+    const path = normalized.startsWith("/") ? normalized : `/${normalized}`;
+    if (!base) return path;
+    return `${base}${path}`;
+  };
+
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (files && files.length > 0) {
@@ -573,15 +587,9 @@ const DossierPage = ({ params }: { params: Promise<{ id: string }> }) => {
             </div>
             <div className="p-4">
               <img
-                src={(() => {
-                  const path = selectedPhoto?.photo_path || selectedPhoto?.file_path || "";
-                  if (!path) {
-                    return "/img/placeholder-medical.svg";
-                  }
-                  return path.startsWith("http")
-                    ? path
-                    : (process.env.NEXT_PUBLIC_API_URL || "") + path;
-                })()}
+                src={resolvePhotoUrl(
+                  (selectedPhoto as any)?.photo_path || (selectedPhoto as any)?.file_path
+                )}
                 alt={`Photo médicale - ${selectedPhoto?.photo_type ?? "Photo"}`}
                 className="w-full h-auto max-h-[70vh] object-contain"
                 onError={(e) => {
@@ -601,6 +609,8 @@ const DossierPage = ({ params }: { params: Promise<{ id: string }> }) => {
           </div>
         </div>
       )}
+
+
 
       {/* Consultation Photos Modal */}
       {showConsultationPhotosModal && (
@@ -647,7 +657,7 @@ const DossierPage = ({ params }: { params: Promise<{ id: string }> }) => {
                     >
                       <div className="aspect-square mb-3 overflow-hidden rounded-lg">
                         <img
-                          src={photo.file_path || photo.photo_path}
+                          src={resolvePhotoUrl(photo.file_path || photo.photo_path)}
                           alt={`Photo médicale - ${photo.photo_type}`}
                           className="w-full h-full object-cover hover:scale-105 transition-transform"
                           onError={(e) => {
